@@ -40,7 +40,7 @@ int main() {
             DrawCenteredText("Interactive Theory & Quiz Studio", 165, 20, Theme::TEXT_MUTED);
 
             // Settings button in top-right corner
-            if (DrawButton({ (float)screenWidth - 170.0f, 20.0f, 150.0f, 42.0f }, "Settings", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ (float)screenWidth - 230.0f, 20.0f, 210.0f, 42.0f }, "Language: C / C++", Theme::BTN_SECONDARY, 18)) {
                 state.currentScreen = ScreenState::SETTINGS;
             }
 
@@ -68,7 +68,7 @@ int main() {
         // SCREEN 2: SETTINGS
         // ====================================================================
         else if (state.currentScreen == ScreenState::SETTINGS) {
-            DrawCenteredText("SETTINGS", 120, 38, Theme::TEXT_LIGHT);
+            DrawCenteredText("SELECT LEARNING LANGUAGE", 120, 38, Theme::TEXT_LIGHT);
             DrawCenteredText("Choose your target programming language:", 190, 22, Theme::TEXT_MUTED);
 
             Color cBtnColor = (state.language == TargetLang::LANG_C) ? Theme::SUCCESS_COL : Theme::BTN_SECONDARY;
@@ -86,7 +86,7 @@ int main() {
             DrawCenteredText("All theory topics and quizzes automatically adapt", 410, 18, Theme::TEXT_MUTED);
             DrawCenteredText("to your selected language.", 435, 18, Theme::TEXT_MUTED);
 
-            if (DrawButton({ 480, 690, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ 480, 690, 240, 50 }, "Save & Return", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
         }
