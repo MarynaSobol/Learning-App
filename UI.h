@@ -80,4 +80,29 @@ inline void DrawTextWrapped(const std::string& text, Rectangle bounds, int fontS
     }
 }
 
+// Draws the animated verification car in the Constructor screen
+inline void DrawCar(float x, float y, bool crashed) {
+    Color bodyColor = crashed ? Theme::ERROR_COL : Theme::WARNING_COL;
+
+    // Car lower chassis
+    DrawRectangleRounded({ x, y + 12, 64, 20 }, 0.3f, 6, bodyColor);
+    // Car cabin/roof
+    DrawRectangleRounded({ x + 12, y, 36, 16 }, 0.3f, 6, bodyColor);
+    // Windshield
+    DrawRectangleRounded({ x + 32, y + 3, 13, 10 }, 0.2f, 4, SKYBLUE);
+
+    // Wheels
+    DrawCircle((int)x + 15, (int)y + 32, 8, BLACK);
+    DrawCircle((int)x + 15, (int)y + 32, 4, LIGHTGRAY);
+    DrawCircle((int)x + 49, (int)y + 32, 8, BLACK);
+    DrawCircle((int)x + 49, (int)y + 32, 4, LIGHTGRAY);
+
+    // Crash smoke / sparks visual indicator
+    if (crashed) {
+        DrawCircle((int)x + 56, (int)y + 10, 9, DARKGRAY);
+        DrawCircle((int)x + 64, (int)y - 2, 12, GRAY);
+        DrawText("!", (int)x + 26, (int)y - 26, 26, Theme::ERROR_COL);
+    }
+}
+
 #endif // UI_H
