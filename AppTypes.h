@@ -1,3 +1,4 @@
+#pragma once
 #ifndef APP_TYPES_H
 #define APP_TYPES_H
 
@@ -12,12 +13,17 @@ enum class TargetLang {
 };
 
 // Application screens
+// Application screens
 enum class ScreenState {
     MAIN_MENU,
     SETTINGS,
     THEORY_TOPICS,
     THEORY_CARDS,
-    QUIZ
+    QUIZ,
+    CONSTRUCTOR_LEVELS,  
+    CONSTRUCTOR_GAME,    
+    VISUALIZER_LEVELS,   
+    VISUALIZER_VIEW      
 };
 
 // --- THEORY STRUCTURES ---

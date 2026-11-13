@@ -44,12 +44,12 @@ int main() {
                 state.currentScreen = ScreenState::SETTINGS;
             }
 
-            // 2 Centered Menu Buttons (Theory & Quiz)
+            // 3 Centered Menu Buttons (Theory & Quiz)
             float btnW = 360.0f;
-            float btnH = 64.0f;
+            float btnH = 56.0f;
             float centerX = (screenWidth - btnW) / 2.0f;
-            float startY = 280.0f;
-            float gap = 82.0f;
+            float startY = 230.0f;
+            float gap = 70.0f;
 
             if (DrawButton({ centerX, startY, btnW, btnH }, "Theory", Theme::BTN_PRIMARY, 26)) {
                 state.currentScreen = ScreenState::THEORY_TOPICS;
@@ -61,6 +61,10 @@ int main() {
                 state.selectedAnswer = -1;
                 state.feedbackTimer = 0.0f;
                 state.currentScreen = ScreenState::QUIZ;
+            }
+            //Constructor Button
+            if (DrawButton({ centerX, startY + gap * 2, btnW, btnH }, "Constructor", Theme::BTN_PRIMARY, 26)) {
+                state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
             }
         }
 
@@ -83,7 +87,7 @@ int main() {
                 db = GetDatabase(state.language);
             }
 
-            DrawCenteredText("All theory topics and quizzes automatically adapt", 410, 18, Theme::TEXT_MUTED);
+            DrawCenteredText("All theory topics, quizzes and constructor automatically adapt", 410, 18, Theme::TEXT_MUTED);
             DrawCenteredText("to your selected language.", 435, 18, Theme::TEXT_MUTED);
 
             if (DrawButton({ 480, 690, 240, 50 }, "Save & Return", Theme::BTN_SECONDARY, 20)) {
