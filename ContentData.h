@@ -1,17 +1,19 @@
-#ifndef CONTENT_DATA_H
-#define CONTENT_DATA_H
+#ifndef CONTENT_DATA_H // Prevent multiple inclusions of this header file
+#define CONTENT_DATA_H // Define the header guard macro
 
-#include "AppTypes.h"
+#include "AppTypes.h" // Include custom application types and data structures
 
+// Structure holding all learning contents for a specific programming language
 struct LanguageDatabase {
-    std::vector<TheoryTopic> theoryTopics;
-    std::vector<QuizQuestion> quizQuestions;
-    std::vector<ConstructorLevel> constructorLevels;
-    std::vector<VisualizerLevel> visualizerLevels;
+    std::vector<TheoryTopic> theoryTopics;           // List of theory topics and their flashcards
+    std::vector<QuizQuestion> quizQuestions;         // List of multiple-choice quiz questions
+    std::vector<ConstructorLevel> constructorLevels; // List of drag-and-drop code assembly puzzles
+    std::vector<VisualizerLevel> visualizerLevels;   // List of step-by-step code walkthrough lessons
 };
 
+// Function that returns the appropriate database content depending on the selected language
 inline LanguageDatabase GetDatabase(TargetLang lang) {
-    LanguageDatabase db;
+    LanguageDatabase db; // Create an empty database container
 
     if (lang == TargetLang::LANG_C) {
         // ==================== C LANGUAGE CONTENT ====================
@@ -185,7 +187,7 @@ inline LanguageDatabase GetDatabase(TargetLang lang) {
         };
     }
 
-    return db;
+    return db; // Return the fully populated language database
 }
 
-#endif // CONTENT_DATA_H
+#endif // CONTENT_DATA_H // End of header guard

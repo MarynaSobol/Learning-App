@@ -1,0 +1,5 @@
+Alice_Coder|123|450|5
+Bob_CPlusPlus|123|320|3
+Charlie_Dev|123|180|2
+Mariia Vanaga|123|15|0
+Maryna Sobol|123|30|0
