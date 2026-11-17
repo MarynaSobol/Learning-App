@@ -47,10 +47,19 @@ void InitConstructorLevel(AppState& state, const ConstructorLevel& level) {
     state.firstErrorLine = -1;
 }
 
+// Initializes a Visualizer level
+void InitVisualizerLevel(AppState& state, const VisualizerLevel& level) {
+    state.showIntroModal = true;
+    state.revealedLinesCount = 1;
+    state.explanationVisible.assign(level.steps.size(), false);
+    state.stepUnderstood.assign(level.steps.size(), false);
+}
+
 int main() {
     const int screenWidth = 1200;
     const int screenHeight = 800;
     InitWindow(screenWidth, screenHeight, "C / C++ Interactive Learning Studio");
+    InitAppFont();
     SetTargetFPS(60);
 
     AppState state;
@@ -74,26 +83,26 @@ int main() {
         // Top Language Status Badge
         const char* activeLangText = (state.language == TargetLang::LANG_C) ? "Active Language: C" : "Active Language: C++";
         DrawRectangleRounded({ 20, 20, 230, 36 }, 0.3f, 6, Theme::PANEL_BG);
-        DrawText(activeLangText, 35, 29, 18, Theme::WARNING_COL);
+        DrawCustomText(activeLangText, 35, 29, 18, Theme::WARNING_COL);
 
         // ====================================================================
         // SCREEN 1: MAIN MENU
         // ====================================================================
         if (state.currentScreen == ScreenState::MAIN_MENU) {
             DrawCenteredText("C / C++ LEARNING STUDIO", 110, 42, Theme::TEXT_LIGHT);
-            DrawCenteredText("Interactive Theory & Quiz Studio", 165, 20, Theme::TEXT_MUTED);
+            DrawCenteredText("Interactive Theory, Quiz, Code Constructor & Visualizer", 165, 20, Theme::TEXT_MUTED);
 
             // Settings button in top-right corner
-            if (DrawButton({ (float)screenWidth - 230.0f, 20.0f, 210.0f, 42.0f }, "Language: C / C++", Theme::BTN_SECONDARY, 18)) {
+            if (DrawButton({ screenWidth - 170.0f, 20.0f, 150.0f, 42.0f }, "Settings", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::SETTINGS;
             }
 
-            // 3 Centered Menu Buttons (Theory, Quiz, Constructor)
+            // 4 Centered Menu Buttons
             float btnW = 360.0f;
-            float btnH = 56.0f;
+            float btnH = 64.0f;
             float centerX = (screenWidth - btnW) / 2.0f;
-            float startY = 230.0f;
-            float gap = 70.0f;
+            float startY = 250.0f;
+            float gap = 82.0f;
 
             if (DrawButton({ centerX, startY, btnW, btnH }, "Theory", Theme::BTN_PRIMARY, 26)) {
                 state.currentScreen = ScreenState::THEORY_TOPICS;
@@ -106,9 +115,11 @@ int main() {
                 state.feedbackTimer = 0.0f;
                 state.currentScreen = ScreenState::QUIZ;
             }
-            // Constructor Button
             if (DrawButton({ centerX, startY + gap * 2, btnW, btnH }, "Constructor", Theme::BTN_PRIMARY, 26)) {
                 state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
+            }
+            if (DrawButton({ centerX, startY + gap * 3, btnW, btnH }, "Visualizer", Theme::BTN_PRIMARY, 26)) {
+                state.currentScreen = ScreenState::VISUALIZER_LEVELS;
             }
         }
 
@@ -116,7 +127,7 @@ int main() {
         // SCREEN 2: SETTINGS
         // ====================================================================
         else if (state.currentScreen == ScreenState::SETTINGS) {
-            DrawCenteredText("SELECT LEARNING LANGUAGE", 120, 38, Theme::TEXT_LIGHT);
+            DrawCenteredText("SETTINGS", 120, 38, Theme::TEXT_LIGHT);
             DrawCenteredText("Choose your target programming language:", 190, 22, Theme::TEXT_MUTED);
 
             Color cBtnColor = (state.language == TargetLang::LANG_C) ? Theme::SUCCESS_COL : Theme::BTN_SECONDARY;
@@ -131,10 +142,10 @@ int main() {
                 db = GetDatabase(state.language);
             }
 
-            DrawCenteredText("All theory topics, quizzes and constructor automatically adapt", 410, 18, Theme::TEXT_MUTED);
-            DrawCenteredText("to your selected language.", 435, 18, Theme::TEXT_MUTED);
+            DrawCenteredText("All theory topics, quizzes, constructor puzzles, and visualizer code", 410, 18, Theme::TEXT_MUTED);
+            DrawCenteredText("automatically adapt to your selected language.", 435, 18, Theme::TEXT_MUTED);
 
-            if (DrawButton({ 480, 690, 240, 50 }, "Save & Return", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ 480, 690, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
         }
@@ -146,7 +157,7 @@ int main() {
             DrawCenteredText("SELECT A THEORY TOPIC", 90, 34, Theme::TEXT_LIGHT);
 
             for (size_t i = 0; i < db.theoryTopics.size(); ++i) {
-                Rectangle btnRect = { 350.0f, 190.0f + (float)(i * 85.0f), 500.0f, 65.0f };
+                Rectangle btnRect = { 350.0f, 190.0f + i * 85.0f, 500.0f, 65.0f };
                 if (DrawButton(btnRect, db.theoryTopics[i].topicName.c_str(), Theme::BTN_PRIMARY, 24)) {
                     state.selectedTopic = (int)i;
                     state.currentCard = 0;
@@ -175,7 +186,7 @@ int main() {
 
             // Card Counter & Title
             std::string progress = TextFormat("Card %d of %d", state.currentCard + 1, (int)topic.cards.size());
-            DrawText(progress.c_str(), 250, 155, 18, Theme::WARNING_COL);
+            DrawCustomText(progress.c_str(), 250, 155, 18, Theme::WARNING_COL);
             DrawCenteredText(card.title.c_str(), 195, 32, Theme::TEXT_LIGHT);
             DrawLine(260, 245, 940, 245, Theme::BTN_SECONDARY);
 
@@ -223,7 +234,7 @@ int main() {
                 for (int i = 0; i < 4; ++i) {
                     int col = i % 2;
                     int row = i / 2;
-                    Rectangle optRect = { 150.0f + (float)(col * 460.0f), 320.0f + (float)(row * 145.0f), 440.0f, 125.0f };
+                    Rectangle optRect = { 150.0f + col * 460.0f, 320.0f + row * 145.0f, 440.0f, 125.0f };
 
                     Color btnCol = kahootColors[i];
                     if (state.selectedAnswer != -1) {
@@ -282,7 +293,7 @@ int main() {
             DrawCenteredText("Drag and drop code blocks into the right order and watch the car inspect your code!", 140, 20, Theme::TEXT_MUTED);
 
             for (size_t i = 0; i < db.constructorLevels.size(); ++i) {
-                Rectangle btnRect = { 350.0f, 220.0f + (float)(i * 85.0f), 500.0f, 65.0f };
+                Rectangle btnRect = { 350.0f, 220.0f + i * 85.0f, 500.0f, 65.0f };
                 if (DrawButton(btnRect, db.constructorLevels[i].levelTitle.c_str(), Theme::BTN_PRIMARY, 24)) {
                     state.selectedConstructorLevel = (int)i;
                     InitConstructorLevel(state, db.constructorLevels[i]);
@@ -305,14 +316,17 @@ int main() {
             DrawCenteredText(level.levelTitle.c_str(), 25, 28, Theme::TEXT_LIGHT);
             DrawCenteredText("Drag code blocks from the bottom pool into the empty slots:", 60, 18, Theme::TEXT_MUTED);
 
+            // Define Target Empty Slots in the middle of the screen
             std::vector<Rectangle> slotRects(numSlots);
             for (int i = 0; i < numSlots; ++i) {
-                slotRects[i] = { 240.0f, 135.0f + (float)(i * 48.0f), 720.0f, 40.0f };
+                slotRects[i] = { 240.0f, 135.0f + i * 48.0f, 720.0f, 40.0f };
             }
 
+            // Car Track & Animated Car above the code slots
             DrawLine(200, 122, 1000, 122, Theme::BTN_SECONDARY);
             DrawCar(state.carX, 82, state.carCrashed);
 
+            // Update Car Inspection Animation
             if (state.isCarMoving && !state.carCrashed && !state.levelSuccess) {
                 state.carX += 260.0f * dt;
                 float stepWidth = 720.0f / (float)numSlots;
@@ -339,27 +353,31 @@ int main() {
                 }
             }
 
+            // Draw Target Slots
             for (int i = 0; i < numSlots; ++i) {
                 Color slotCol = Theme::PANEL_BG;
                 if (state.carTargetLine > i) {
-                    slotCol = Theme::SUCCESS_COL;
+                    slotCol = Theme::SUCCESS_COL; // Line verified by car -> turns green!
                 }
                 else if (state.carCrashed) {
                     int bIdx = state.slotBlockIndex[i];
                     bool isCorrect = (bIdx != -1 && state.blocks[bIdx].text == level.correctLines[i]);
-                    if (!isCorrect) slotCol = Theme::ERROR_COL;
+                    if (!isCorrect) slotCol = Theme::ERROR_COL; // All wrong blocks turn red on crash!
                 }
 
                 DrawRectangleRounded(slotRects[i], 0.2f, 6, slotCol);
                 DrawRectangleRoundedLines(slotRects[i], 0.2f, 6, Theme::BTN_SECONDARY);
-                DrawText(TextFormat("%d.", i + 1), (int)slotRects[i].x - 35, (int)slotRects[i].y + 10, 20, Theme::TEXT_MUTED);
+                DrawCustomText(TextFormat("%d.", i + 1), (int)slotRects[i].x - 35, (int)slotRects[i].y + 10, 20, Theme::TEXT_MUTED);
             }
 
+            // Bottom Pool Divider
             DrawLine(100, 465, 1100, 465, Theme::BTN_SECONDARY);
-            DrawText("Available Code Blocks:", 140, 442, 18, Theme::TEXT_MUTED);
+            DrawCustomText("Available Code Blocks:", 140, 442, 18, Theme::TEXT_MUTED);
 
+            // Handle Drag & Drop Interaction (disabled while car is driving or modal is open)
             bool interactionLocked = state.isCarMoving || state.showErrorModal || state.levelSuccess;
             if (!interactionLocked) {
+                // Start dragging on click
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     for (int i = (int)state.blocks.size() - 1; i >= 0; --i) {
                         if (CheckCollisionPointRec(mouse, state.blocks[i].rect)) {
@@ -374,6 +392,7 @@ int main() {
                     }
                 }
 
+                // Update dragged block position
                 for (auto& b : state.blocks) {
                     if (b.isDragging) {
                         b.rect.x = mouse.x - b.dragOffset.x;
@@ -381,6 +400,7 @@ int main() {
 
                         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
                             b.isDragging = false;
+                            // Snap into slot if dropped over an empty slot
                             for (int s = 0; s < numSlots; ++s) {
                                 if (CheckCollisionPointRec(mouse, slotRects[s]) && state.slotBlockIndex[s] == -1) {
                                     b.currentSlot = s;
@@ -395,6 +415,7 @@ int main() {
                 }
             }
 
+            // Draw Draggable Code Blocks
             for (size_t i = 0; i < state.blocks.size(); ++i) {
                 const auto& b = state.blocks[i];
                 Color blockColor = Theme::BTN_PRIMARY;
@@ -410,9 +431,10 @@ int main() {
 
                 DrawRectangleRounded(b.rect, 0.2f, 6, blockColor);
                 DrawRectangleRoundedLines(b.rect, 0.2f, 6, Theme::TEXT_LIGHT);
-                DrawText(b.text.c_str(), (int)b.rect.x + 14, (int)b.rect.y + 9, 20, Theme::TEXT_LIGHT);
+                DrawCustomText(b.text.c_str(), (int)b.rect.x + 14, (int)b.rect.y + 9, 20, Theme::TEXT_LIGHT);
             }
 
+            // Bottom Action Buttons
             if (!state.isCarMoving && !state.levelSuccess && !state.showErrorModal) {
                 if (DrawButton({ 740, 720, 220, 50 }, "Ready (Run Car)", Theme::SUCCESS_COL, 20)) {
                     state.carX = 200.0f;
@@ -426,6 +448,7 @@ int main() {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
 
+            // Success Banner
             if (state.levelSuccess) {
                 DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 185 });
                 Rectangle modal = { 280, 220, 640, 320 };
@@ -443,6 +466,7 @@ int main() {
                 }
             }
 
+            // Crash / Error Modal with detailed explanations for every mistake
             if (state.showErrorModal) {
                 DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 });
                 Rectangle modal = { 140, 90, 920, 620 };
@@ -474,9 +498,118 @@ int main() {
             }
         }
 
+        // ====================================================================
+        // SCREEN 8: VISUALIZER LEVEL SELECTION
+        // ====================================================================
+        else if (state.currentScreen == ScreenState::VISUALIZER_LEVELS) {
+            DrawCenteredText("CODE VISUALIZER - SELECT LEVEL", 90, 34, Theme::TEXT_LIGHT);
+            DrawCenteredText("Inspect code execution line-by-line with interactive explanations", 140, 20, Theme::TEXT_MUTED);
+
+            for (size_t i = 0; i < db.visualizerLevels.size(); ++i) {
+                Rectangle btnRect = { 350.0f, 220.0f + i * 85.0f, 500.0f, 65.0f };
+                if (DrawButton(btnRect, db.visualizerLevels[i].levelTitle.c_str(), Theme::BTN_PRIMARY, 24)) {
+                    state.selectedVisualizerLevel = (int)i;
+                    InitVisualizerLevel(state, db.visualizerLevels[i]);
+                    state.currentScreen = ScreenState::VISUALIZER_VIEW;
+                }
+            }
+
+            if (DrawButton({ 480, 710, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::MAIN_MENU;
+            }
+        }
+
+        // ====================================================================
+        // SCREEN 9: VISUALIZER STEP-BY-STEP VIEW
+        // ====================================================================
+        else if (state.currentScreen == ScreenState::VISUALIZER_VIEW) {
+            const auto& level = db.visualizerLevels[state.selectedVisualizerLevel];
+            DrawCenteredText(level.levelTitle.c_str(), 30, 30, Theme::TEXT_LIGHT);
+
+            // Step-by-step interactive code view
+            float curY = 85.0f;
+            for (int i = 0; i < state.revealedLinesCount && i < (int)level.steps.size(); ++i) {
+                // Code Line Box
+                Rectangle lineBox = { 140.0f, curY, 720.0f, 38.0f };
+                DrawRectangleRounded(lineBox, 0.2f, 6, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(lineBox, 0.2f, 6, Theme::BTN_PRIMARY);
+                DrawCustomText(level.steps[i].codeLine.c_str(), 160, (int)curY + 9, 20, Theme::TEXT_LIGHT);
+
+                // Toggle button if already understood (allows collapsing/expanding at will)
+                if (state.stepUnderstood[i]) {
+                    const char* toggleLabel = state.explanationVisible[i] ? "Hide Info" : "Show Info";
+                    if (DrawButton({ 880.0f, curY, 160.0f, 38.0f }, toggleLabel, Theme::BTN_SECONDARY, 18)) {
+                        state.explanationVisible[i] = !state.explanationVisible[i];
+                    }
+                }
+
+                curY += 44.0f;
+
+                // If user hasn't clicked "Explanation" yet for the active line
+                if (!state.explanationVisible[i] && !state.stepUnderstood[i]) {
+                    if (DrawButton({ 160.0f, curY, 190.0f, 36.0f }, "Explanation", Theme::WARNING_COL, 18)) {
+                        state.explanationVisible[i] = true;
+                    }
+                    curY += 44.0f;
+                }
+
+                // Explanation Panel
+                if (state.explanationVisible[i]) {
+                    Rectangle expBox = { 160.0f, curY, 700.0f, 52.0f };
+                    DrawRectangleRounded(expBox, 0.2f, 6, { 30, 58, 50, 255 });
+                    DrawRectangleRoundedLines(expBox, 0.2f, 6, Theme::SUCCESS_COL);
+                    DrawTextWrapped(level.steps[i].explanation, { 175.0f, curY + 8.0f, 670.0f, 40.0f }, 18, Theme::TEXT_LIGHT);
+                    curY += 58.0f;
+
+                    // "Got It" button under the explanation unlocks the next line of code
+                    if (!state.stepUnderstood[i]) {
+                        if (DrawButton({ 160.0f, curY, 160.0f, 36.0f }, "Got It!", Theme::SUCCESS_COL, 18)) {
+                            state.stepUnderstood[i] = true;
+                            state.explanationVisible[i] = false; // Auto-collapse to keep view clean (can be re-opened via Show Info)
+                            if (state.revealedLinesCount < (int)level.steps.size()) {
+                                state.revealedLinesCount++;
+                            }
+                        }
+                        curY += 44.0f;
+                    }
+                }
+            }
+
+            if (state.stepUnderstood.back()) {
+                DrawCenteredText("All lines analyzed! You can toggle any explanation above or return to the menu.", 675, 20, Theme::SUCCESS_COL);
+            }
+
+            if (DrawButton({ 480, 720, 240, 50 }, "Exit to Main Menu", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::MAIN_MENU;
+            }
+
+            // Intro Notification Modal showing the full chapter code first
+            if (state.showIntroModal) {
+                DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 205 });
+                Rectangle modal = { 220, 110, 760, 560 };
+                DrawRectangleRounded(modal, 0.06f, 10, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(modal, 0.06f, 10, Theme::BTN_PRIMARY);
+
+                DrawCenteredText("CODE OVERVIEW", 140, 32, Theme::WARNING_COL);
+                DrawCenteredText("Here is the complete code we are going to break down now:", 185, 20, Theme::TEXT_LIGHT);
+
+                Rectangle codeBox = { 270, 225, 660, 330 };
+                DrawRectangleRounded(codeBox, 0.05f, 8, Theme::BG_DARK);
+                DrawTextWrapped(level.fullCode, { 295, 245, 610, 290 }, 22, Theme::SUCCESS_COL);
+
+                if (DrawButton({ 320, 585, 220, 50 }, "Cancel (Main Menu)", Theme::ERROR_COL, 20)) {
+                    state.currentScreen = ScreenState::MAIN_MENU;
+                }
+                if (DrawButton({ 660, 585, 220, 50 }, "Let's Go!", Theme::SUCCESS_COL, 20)) {
+                    state.showIntroModal = false;
+                }
+            }
+        }
+
         EndDrawing();
     }
 
+    UnloadAppFont();
     CloseWindow();
     return 0;
 }

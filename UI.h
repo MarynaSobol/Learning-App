@@ -18,6 +18,45 @@ namespace Theme {
     const Color TEXT_MUTED = { 165, 175, 195, 255 };
 }
 
+// Global custom font and spacing
+inline Font AppFont = { 0 };
+inline const float FONT_SPACING = 1.0f;
+
+// Loads "font.ttf" from the project folder (or falls back to a clean Windows system font)
+inline void InitAppFont() {
+    if (FileExists("font.ttf")) {
+        AppFont = LoadFontEx("font.ttf", 64, nullptr, 0);
+    }
+    else if (FileExists("C:/Windows/Fonts/segoeui.ttf")) {
+        AppFont = LoadFontEx("C:/Windows/Fonts/segoeui.ttf", 64, nullptr, 0);
+    }
+    else if (FileExists("C:/Windows/Fonts/arial.ttf")) {
+        AppFont = LoadFontEx("C:/Windows/Fonts/arial.ttf", 64, nullptr, 0);
+    }
+    else {
+        AppFont = GetFontDefault();
+    }
+
+    // Enable smooth anti-aliased scaling for the font texture
+    SetTextureFilter(AppFont.texture, TEXTURE_FILTER_BILINEAR);
+}
+
+inline void UnloadAppFont() {
+    if (AppFont.texture.id != GetFontDefault().texture.id) {
+        UnloadFont(AppFont);
+    }
+}
+
+// Drop-in replacement for DrawText using the custom font
+inline void DrawCustomText(const char* text, int x, int y, int fontSize, Color color) {
+    DrawTextEx(AppFont, text, { (float)x, (float)y }, (float)fontSize, FONT_SPACING, color);
+}
+
+// Drop-in replacement for MeasureText using the custom font
+inline float MeasureCustomText(const char* text, int fontSize) {
+    return MeasureTextEx(AppFont, text, (float)fontSize, FONT_SPACING).x;
+}
+
 // Draws an interactive rounded button and returns true when clicked
 inline bool DrawButton(Rectangle bounds, const char* text, Color baseColor = Theme::BTN_PRIMARY, int fontSize = 20) {
     Vector2 mouse = GetMousePosition();
@@ -32,19 +71,18 @@ inline bool DrawButton(Rectangle bounds, const char* text, Color baseColor = The
     DrawRectangleRounded(bounds, 0.25f, 8, drawCol);
     DrawRectangleRoundedLines(bounds, 0.25f, 8, ColorBrightness(drawCol, 0.3f));
 
-    int textW = MeasureText(text, fontSize);
-    DrawText(text,
-        (int)(bounds.x + (bounds.width - textW) / 2),
-        (int)(bounds.y + (bounds.height - fontSize) / 2),
-        fontSize, Theme::TEXT_LIGHT);
+    Vector2 textSize = MeasureTextEx(AppFont, text, (float)fontSize, FONT_SPACING);
+    DrawTextEx(AppFont, text,
+        { bounds.x + (bounds.width - textSize.x) / 2.0f, bounds.y + (bounds.height - textSize.y) / 2.0f },
+        (float)fontSize, FONT_SPACING, Theme::TEXT_LIGHT);
 
     return clicked;
 }
 
 // Draws centered text horizontally at a given Y coordinate
 inline void DrawCenteredText(const char* text, int y, int fontSize, Color color = Theme::TEXT_LIGHT) {
-    int w = MeasureText(text, fontSize);
-    DrawText(text, (GetScreenWidth() - w) / 2, y, fontSize, color);
+    float w = MeasureCustomText(text, fontSize);
+    DrawTextEx(AppFont, text, { (GetScreenWidth() - w) / 2.0f, (float)y }, (float)fontSize, FONT_SPACING, color);
 }
 
 // Draws multi-line wrapped text inside a bounding rectangle
@@ -64,8 +102,8 @@ inline void DrawTextWrapped(const std::string& text, Rectangle bounds, int fontS
 
         while (wordsStream >> word) {
             std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-            if (MeasureText(testLine.c_str(), fontSize) > bounds.width) {
-                DrawText(currentLine.c_str(), (int)bounds.x, (int)curY, fontSize, color);
+            if (MeasureCustomText(testLine.c_str(), fontSize) > bounds.width) {
+                DrawCustomText(currentLine.c_str(), (int)bounds.x, (int)curY, fontSize, color);
                 curY += fontSize + 6;
                 currentLine = word;
             }
@@ -74,7 +112,7 @@ inline void DrawTextWrapped(const std::string& text, Rectangle bounds, int fontS
             }
         }
         if (!currentLine.empty()) {
-            DrawText(currentLine.c_str(), (int)bounds.x, (int)curY, fontSize, color);
+            DrawCustomText(currentLine.c_str(), (int)bounds.x, (int)curY, fontSize, color);
             curY += fontSize + 6;
         }
     }
@@ -101,7 +139,7 @@ inline void DrawCar(float x, float y, bool crashed) {
     if (crashed) {
         DrawCircle((int)x + 56, (int)y + 10, 9, DARKGRAY);
         DrawCircle((int)x + 64, (int)y - 2, 12, GRAY);
-        DrawText("!", (int)x + 26, (int)y - 26, 26, Theme::ERROR_COL);
+        DrawCustomText("!", (int)x + 26, (int)y - 26, 26, Theme::ERROR_COL);
     }
 }
 

@@ -45,11 +45,15 @@ struct QuizQuestion {
 // --- CONSTRUCTOR STRUCTURES ---
 struct ConstructorLevel {
     std::string levelTitle;
+    // Correct lines in exact sequential order
     std::vector<std::string> correctLines;
+    // Explanations for why a specific slot requires its line
     std::vector<std::string> slotExplanations;
+    // Distractor blocks (optional extra blocks to make it harder)
     std::vector<std::string> extraBlocks;
 };
 
+// Represents a draggable code block in the Constructor game
 struct DraggableBlock {
     std::string text;
     Rectangle rect;
@@ -89,7 +93,7 @@ struct AppState {
     // Constructor State
     int selectedConstructorLevel = 0;
     std::vector<DraggableBlock> blocks;
-    std::vector<int> slotBlockIndex;
+    std::vector<int> slotBlockIndex; // Stores index of block in each slot (-1 if empty)
     bool isCarMoving = false;
     float carX = 0.0f;
     int carTargetLine = 0;
@@ -101,9 +105,9 @@ struct AppState {
     // Visualizer State
     int selectedVisualizerLevel = 0;
     bool showIntroModal = true;
-    int revealedLinesCount = 1;
-    std::vector<bool> explanationVisible;
-    std::vector<bool> stepUnderstood;
+    int revealedLinesCount = 1; // Starts with 1 line visible
+    std::vector<bool> explanationVisible; // Is explanation currently open for line i
+    std::vector<bool> stepUnderstood;     // Has user clicked "Got It" for line i
 };
 
 #endif // APP_TYPES_H

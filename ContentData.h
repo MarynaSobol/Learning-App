@@ -94,6 +94,7 @@ inline LanguageDatabase GetDatabase(TargetLang lang) {
                 }
             }
         };
+
     }
     else {
         // ==================== C++ LANGUAGE CONTENT ====================
