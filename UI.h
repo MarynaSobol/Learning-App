@@ -4,6 +4,7 @@
 #include "raylib.h"
 #include <string>
 #include <sstream>
+#include <vector>
 
 namespace Theme {
     const Color BG_DARK = { 24, 26, 36, 255 };
@@ -52,6 +53,55 @@ inline float MeasureCustomText(const char* text, int fontSize) {
     return MeasureTextEx(AppFont, text, (float)fontSize, FONT_SPACING).x;
 }
 
+// Breaks text into wrapped lines fitting inside maxWidth
+inline std::vector<std::string> WrapTextLines(const std::string& text, float maxWidth, int fontSize) {
+    std::vector<std::string> lines;
+    std::istringstream linesStream(text);
+    std::string paragraph;
+
+    while (std::getline(linesStream, paragraph, '\n')) {
+        if (paragraph.empty()) {
+            lines.push_back("");
+            continue;
+        }
+        std::istringstream wordsStream(paragraph);
+        std::string word;
+        std::string currentLine;
+
+        while (wordsStream >> word) {
+            std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
+            if (!currentLine.empty() && MeasureCustomText(testLine.c_str(), fontSize) > maxWidth) {
+                lines.push_back(currentLine);
+                currentLine = word;
+            }
+            else {
+                currentLine = testLine;
+            }
+        }
+        if (!currentLine.empty()) {
+            lines.push_back(currentLine);
+        }
+    }
+    return lines;
+}
+
+// Measures total pixel height needed for wrapped text
+inline float MeasureTextWrappedHeight(const std::string& text, float maxWidth, int fontSize) {
+    std::vector<std::string> lines = WrapTextLines(text, maxWidth, fontSize);
+    if (lines.empty()) return (float)fontSize;
+    return (float)lines.size() * (fontSize + 6) - 4.0f;
+}
+
+// Draws text shrunk to fit inside maxWidth on a single line (prevents overflow in code blocks)
+inline void DrawTextFitWidth(const char* text, int x, int y, int maxFontSize, float maxWidth, Color color) {
+    int fs = maxFontSize;
+    while (fs > 12 && MeasureCustomText(text, fs) > maxWidth) {
+        fs--;
+    }
+    float yOffset = (maxFontSize - fs) * 0.45f;
+    DrawCustomText(text, x, (int)(y + yOffset), fs, color);
+}
+
 inline bool DrawButton(Rectangle bounds, const char* text, Color baseColor = Theme::BTN_PRIMARY, int fontSize = 20) {
     Vector2 mouse = GetMousePosition();
     bool hovered = CheckCollisionPointRec(mouse, bounds);
@@ -62,13 +112,37 @@ inline bool DrawButton(Rectangle bounds, const char* text, Color baseColor = The
         drawCol = ColorBrightness(baseColor, -0.15f);
     }
 
-    DrawRectangleRounded(bounds, 0.25f, 8, drawCol);
-    DrawRectangleRoundedLines(bounds, 0.25f, 8, ColorBrightness(drawCol, 0.3f));
+    DrawRectangleRounded(bounds, 0.22f, 8, drawCol);
+    DrawRectangleRoundedLines(bounds, 0.22f, 8, ColorBrightness(drawCol, 0.3f));
 
+    float paddingX = 20.0f;
+    float maxTextW = bounds.width - paddingX;
     Vector2 textSize = MeasureTextEx(AppFont, text, (float)fontSize, FONT_SPACING);
-    DrawTextEx(AppFont, text,
-        { bounds.x + (bounds.width - textSize.x) / 2.0f, bounds.y + (bounds.height - textSize.y) / 2.0f },
-        (float)fontSize, FONT_SPACING, Theme::TEXT_LIGHT);
+
+    if (textSize.x <= maxTextW) {
+        DrawTextEx(AppFont, text,
+            { bounds.x + (bounds.width - textSize.x) / 2.0f, bounds.y + (bounds.height - textSize.y) / 2.0f },
+            (float)fontSize, FONT_SPACING, Theme::TEXT_LIGHT);
+    }
+    else {
+        // Auto-wrap long button labels cleanly inside the button bounds
+        int fs = fontSize;
+        std::vector<std::string> lines = WrapTextLines(text, maxTextW, fs);
+        float lineH = (float)(fs + 4);
+        while (fs > 14 && lines.size() * lineH > bounds.height - 12.0f) {
+            fs -= 2;
+            lines = WrapTextLines(text, maxTextW, fs);
+            lineH = (float)(fs + 4);
+        }
+        float totalH = lines.size() * lineH - 4.0f;
+        float startY = bounds.y + (bounds.height - totalH) / 2.0f;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            float lw = MeasureCustomText(lines[i].c_str(), fs);
+            DrawTextEx(AppFont, lines[i].c_str(),
+                { bounds.x + (bounds.width - lw) / 2.0f, startY + i * lineH },
+                (float)fs, FONT_SPACING, Theme::TEXT_LIGHT);
+        }
+    }
 
     return clicked;
 }
@@ -79,34 +153,13 @@ inline void DrawCenteredText(const char* text, int y, int fontSize, Color color 
 }
 
 inline void DrawTextWrapped(const std::string& text, Rectangle bounds, int fontSize, Color color) {
-    std::istringstream linesStream(text);
-    std::string paragraph;
+    std::vector<std::string> lines = WrapTextLines(text, bounds.width, fontSize);
     float curY = bounds.y;
-
-    while (std::getline(linesStream, paragraph, '\n')) {
-        if (paragraph.empty()) {
-            curY += fontSize + 6;
-            continue;
+    for (const auto& line : lines) {
+        if (!line.empty()) {
+            DrawCustomText(line.c_str(), (int)bounds.x, (int)curY, fontSize, color);
         }
-        std::istringstream wordsStream(paragraph);
-        std::string word;
-        std::string currentLine;
-
-        while (wordsStream >> word) {
-            std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-            if (MeasureCustomText(testLine.c_str(), fontSize) > bounds.width) {
-                DrawCustomText(currentLine.c_str(), (int)bounds.x, (int)curY, fontSize, color);
-                curY += fontSize + 6;
-                currentLine = word;
-            }
-            else {
-                currentLine = testLine;
-            }
-        }
-        if (!currentLine.empty()) {
-            DrawCustomText(currentLine.c_str(), (int)bounds.x, (int)curY, fontSize, color);
-            curY += fontSize + 6;
-        }
+        curY += fontSize + 6;
     }
 }
 
