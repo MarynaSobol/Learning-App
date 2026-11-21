@@ -21,9 +21,12 @@ enum class ScreenState {
     SETTINGS,
     THEORY_TOPICS,
     THEORY_CARDS,
+    QUIZ_TOPICS,
     QUIZ,
+    CONSTRUCTOR_TOPICS,
     CONSTRUCTOR_LEVELS,
     CONSTRUCTOR_GAME,
+    VISUALIZER_TOPICS,
     VISUALIZER_LEVELS,
     VISUALIZER_VIEW
 };
@@ -34,9 +37,9 @@ struct User {
     std::string password;
     int xp = 0;
     int levelsCompleted = 0;
-    int streak = 1;                       // Consecutive days played
-    int lives = 5;                        // Daily lives (max 5 per day)
-    std::string lastActiveDate = "";      // Format: YYYY-MM-DD
+    int streak = 1;                              // Consecutive days played
+    int lives = 5;                               // Daily lives (max 5 per day)
+    std::string lastActiveDate = "";             // Format: YYYY-MM-DD
     std::string weakTopic = "Pointers & Syntax"; // Area recommended for practice
 };
 
@@ -51,19 +54,29 @@ struct TheoryTopic {
     std::vector<Flashcard> cards;
 };
 
-// --- QUIZ STRUCTURES ---
+// --- QUIZ STRUCTURES (Topic-based, matching Theory topics) ---
 struct QuizQuestion {
     std::string question;
     std::string options[4];
     int correctIndex;
 };
 
-// --- CONSTRUCTOR STRUCTURES ---
+struct QuizTopic {
+    std::string topicName;
+    std::vector<QuizQuestion> questions;
+};
+
+// --- CONSTRUCTOR STRUCTURES (Topic-based) ---
 struct ConstructorLevel {
     std::string levelTitle;
     std::vector<std::string> correctLines;
     std::vector<std::string> slotExplanations;
     std::vector<std::string> extraBlocks;
+};
+
+struct ConstructorTopic {
+    std::string topicName;
+    std::vector<ConstructorLevel> levels;
 };
 
 struct DraggableBlock {
@@ -74,7 +87,7 @@ struct DraggableBlock {
     Vector2 dragOffset;
 };
 
-// --- VISUALIZER STRUCTURES ---
+// --- VISUALIZER STRUCTURES (Topic-based) ---
 struct CodeStep {
     std::string codeLine;
     std::string explanation;
@@ -84,6 +97,11 @@ struct VisualizerLevel {
     std::string levelTitle;
     std::string fullCode;
     std::vector<CodeStep> steps;
+};
+
+struct VisualizerTopic {
+    std::string topicName;
+    std::vector<VisualizerLevel> levels;
 };
 
 // --- GLOBAL APPLICATION STATE ---
@@ -109,6 +127,7 @@ struct AppState {
     int currentCard = 0;
 
     // Quiz State
+    int selectedQuizTopic = 0;
     int currentQuestion = 0;
     int score = 0;
     bool quizFinished = false;
@@ -116,6 +135,7 @@ struct AppState {
     float feedbackTimer = 0.0f;
 
     // Constructor State
+    int selectedConstructorTopic = 0;
     int selectedConstructorLevel = 0;
     std::vector<DraggableBlock> blocks;
     std::vector<int> slotBlockIndex;
@@ -126,13 +146,16 @@ struct AppState {
     bool levelSuccess = false;
     bool showErrorModal = false;
     int firstErrorLine = -1;
+    float errorModalScrollY = 0.0f;
 
     // Visualizer State
+    int selectedVisualizerTopic = 0;
     int selectedVisualizerLevel = 0;
     bool showIntroModal = true;
     int revealedLinesCount = 1;
     std::vector<bool> explanationVisible;
     std::vector<bool> stepUnderstood;
+    float visualizerScrollY = 0.0f;
 };
 
 #endif // APP_TYPES_H
