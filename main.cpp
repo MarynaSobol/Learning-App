@@ -27,9 +27,9 @@ std::string GetTodayDate() {
 void SyncUserDailyStatus(User& user) {
     std::string today = GetTodayDate();
     if (user.lastActiveDate != today) {
-        user.lives = 5; // Restore 5 lives each new day
+        user.lives = 5;
         if (!user.lastActiveDate.empty()) {
-            user.streak += 1; // Increment streak on new day login
+            user.streak += 1;
         }
         else {
             user.streak = 1;
@@ -122,12 +122,14 @@ void InitConstructorLevel(AppState& state, const ConstructorLevel& level) {
         allTexts.push_back(extra);
     }
 
-    std::mt19937 rng(1337 + state.selectedConstructorLevel);
+    std::mt19937 rng(1337 + state.selectedConstructorTopic * 31 + state.selectedConstructorLevel);
     std::shuffle(allTexts.begin(), allTexts.end(), rng);
 
-    int startX = 140;
-    int startY = 485;
-    int colWidth = 460;
+    // Cleanly positioned bottom pool (no overlap with slots or bottom buttons)
+    int startX = 65;
+    int startY = 480;
+    int colWidth = 520;
+    int colGap = 30;
     int rowHeight = 46;
 
     for (size_t i = 0; i < allTexts.size(); ++i) {
@@ -135,7 +137,7 @@ void InitConstructorLevel(AppState& state, const ConstructorLevel& level) {
         b.text = allTexts[i];
         int col = (int)(i % 2);
         int row = (int)(i / 2);
-        b.rect = { (float)(startX + col * (colWidth + 30)), (float)(startY + row * rowHeight), (float)colWidth, 38.0f };
+        b.rect = { (float)(startX + col * (colWidth + colGap)), (float)(startY + row * rowHeight), (float)colWidth, 36.0f };
         b.currentSlot = -1;
         b.isDragging = false;
         b.dragOffset = { 0, 0 };
@@ -143,12 +145,13 @@ void InitConstructorLevel(AppState& state, const ConstructorLevel& level) {
     }
 
     state.isCarMoving = false;
-    state.carX = 140.0f;
+    state.carX = 180.0f;
     state.carTargetLine = 0;
     state.carCrashed = false;
     state.levelSuccess = false;
     state.showErrorModal = false;
     state.firstErrorLine = -1;
+    state.errorModalScrollY = 0.0f;
 }
 
 void InitVisualizerLevel(AppState& state, const VisualizerLevel& level) {
@@ -156,6 +159,7 @@ void InitVisualizerLevel(AppState& state, const VisualizerLevel& level) {
     state.revealedLinesCount = 1;
     state.explanationVisible.assign(level.steps.size(), false);
     state.stepUnderstood.assign(level.steps.size(), false);
+    state.visualizerScrollY = 0.0f;
 }
 
 void UpdateTextInput(char* buffer, int maxLen) {
@@ -199,6 +203,7 @@ int main() {
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
         Vector2 mouse = GetMousePosition();
+        ScreenState frameScreen = state.currentScreen;
 
         BeginDrawing();
         ClearBackground(Theme::BG_DARK);
@@ -206,9 +211,9 @@ int main() {
         // ====================================================================
         // SCREEN 0A: AUTH MENU
         // ====================================================================
-        if (state.currentScreen == ScreenState::AUTH_MENU) {
+        if (frameScreen == ScreenState::AUTH_MENU) {
             DrawCenteredText("C / C++ LEARNING STUDIO", 180, 42, Theme::TEXT_LIGHT);
-            DrawCenteredText("Master programming with interactive challenges & Duolingo-style XP", 240, 20, Theme::TEXT_MUTED);
+            DrawCenteredText("Master programming from scratch with clear lessons, quizzes & labs", 240, 20, Theme::TEXT_MUTED);
 
             float btnW = 360.0f;
             float btnH = 60.0f;
@@ -233,7 +238,7 @@ int main() {
         // ====================================================================
         // SCREEN 0B: LOGIN SCREEN
         // ====================================================================
-        else if (state.currentScreen == ScreenState::LOGIN) {
+        else if (frameScreen == ScreenState::LOGIN) {
             DrawCenteredText("USER LOGIN", 140, 36, Theme::TEXT_LIGHT);
 
             Rectangle userBox = { 400, 260, 400, 45 };
@@ -292,7 +297,7 @@ int main() {
         // ====================================================================
         // SCREEN 0C: REGISTER SCREEN
         // ====================================================================
-        else if (state.currentScreen == ScreenState::REGISTER) {
+        else if (frameScreen == ScreenState::REGISTER) {
             DrawCenteredText("CREATE ACCOUNT", 140, 36, Theme::TEXT_LIGHT);
 
             Rectangle userBox = { 400, 260, 400, 45 };
@@ -355,13 +360,12 @@ int main() {
         // ====================================================================
         // SCREEN 1: MAIN MENU (SIDEBAR + TOP 3 INFO CARDS + CENTER LEADERBOARD)
         // ====================================================================
-        else if (state.currentScreen == ScreenState::MAIN_MENU) {
-            // --- 1. LEFT SIDEBAR ---
+        else if (frameScreen == ScreenState::MAIN_MENU) {
             const float sidebarW = 270.0f;
             DrawRectangle(0, 0, (int)sidebarW, screenHeight, Theme::SIDEBAR_BG);
             DrawLine((int)sidebarW, 0, (int)sidebarW, screenHeight, Theme::BTN_SECONDARY);
 
-            // Top of Sidebar: Language Switcher (C / C++)
+            // Language Switcher
             DrawCustomText("TARGET LANGUAGE", 22, 20, 14, Theme::TEXT_MUTED);
             Color cCol = (state.language == TargetLang::LANG_C) ? Theme::SUCCESS_COL : Theme::PANEL_BG;
             Color cppCol = (state.language == TargetLang::LANG_CPP) ? Theme::SUCCESS_COL : Theme::PANEL_BG;
@@ -377,7 +381,6 @@ int main() {
 
             DrawLine(20, 105, (int)sidebarW - 20, 105, Theme::BTN_SECONDARY);
 
-            // User Profile Info in Sidebar
             User* currUser = nullptr;
             if (state.currentUserIndex >= 0 && state.currentUserIndex < (int)state.registeredUsers.size()) {
                 currUser = &state.registeredUsers[state.currentUserIndex];
@@ -388,13 +391,13 @@ int main() {
             DrawLine(20, 185, (int)sidebarW - 20, 185, Theme::BTN_SECONDARY);
             DrawCustomText("LEARNING MODES", 22, 202, 14, Theme::TEXT_MUTED);
 
-            // 4 Active Mode Buttons in Sidebar
             float navX = 20.0f;
             float navW = sidebarW - 40.0f;
             float navH = 54.0f;
             float navStartY = 230.0f;
             float navGap = 68.0f;
 
+            // ALL 4 MODES OPEN THEIR TOPIC SELECTION SCREEN FIRST
             if (DrawButton({ navX, navStartY, navW, navH }, "Theory", Theme::BTN_PRIMARY, 22)) {
                 state.currentScreen = ScreenState::THEORY_TOPICS;
             }
@@ -404,35 +407,27 @@ int main() {
                 }
                 else {
                     state.authErrorMsg = "";
-                    state.currentQuestion = 0;
-                    state.score = 0;
-                    state.quizFinished = false;
-                    state.selectedAnswer = -1;
-                    state.feedbackTimer = 0.0f;
-                    state.currentScreen = ScreenState::QUIZ;
+                    state.currentScreen = ScreenState::QUIZ_TOPICS;
                 }
             }
             if (DrawButton({ navX, navStartY + navGap * 2, navW, navH }, "Constructor", Theme::BTN_PRIMARY, 22)) {
-                state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
+                state.currentScreen = ScreenState::CONSTRUCTOR_TOPICS;
             }
             if (DrawButton({ navX, navStartY + navGap * 3, navW, navH }, "Visualizer", Theme::BTN_PRIMARY, 22)) {
-                state.currentScreen = ScreenState::VISUALIZER_LEVELS;
+                state.currentScreen = ScreenState::VISUALIZER_TOPICS;
             }
 
-            // Bottom of Sidebar: Log Out button
             if (DrawButton({ 20, screenHeight - 70.0f, navW, 46 }, "Log Out", Theme::ERROR_COL, 18)) {
                 state.currentUserIndex = -1;
                 state.authErrorMsg = "";
                 state.currentScreen = ScreenState::AUTH_MENU;
             }
 
-            // --- 2. MAIN CONTENT AREA (RIGHT OF SIDEBAR) ---
+            // Main Content Area
             float contentX = sidebarW + 30.0f;
-            float contentW = screenWidth - sidebarW - 60.0f; // 870 px
-
-            // Top Row: 3 Non-Clickable Info Cards (Streak | Practice Focus | Daily Lives)
+            float contentW = screenWidth - sidebarW - 60.0f;
             float cardGap = 20.0f;
-            float cardW = (contentW - cardGap * 2) / 3.0f; // ~276 px each
+            float cardW = (contentW - cardGap * 2) / 3.0f;
             float cardH = 105.0f;
             float cardY = 25.0f;
 
@@ -440,7 +435,7 @@ int main() {
             int livesVal = currUser ? currUser->lives : 5;
             std::string weakVal = currUser ? currUser->weakTopic : "Pointers & Syntax";
 
-            // CARD 1: Daily Streak with Flame Icon
+            // CARD 1: Daily Streak
             Rectangle streakCard = { contentX, cardY, cardW, cardH };
             DrawRectangleRounded(streakCard, 0.16f, 8, Theme::PANEL_BG);
             DrawRectangleRoundedLines(streakCard, 0.16f, 8, Theme::WARNING_COL);
@@ -450,15 +445,15 @@ int main() {
                 (int)streakCard.x + 68, (int)streakCard.y + 44, 28, Theme::WARNING_COL);
             DrawCustomText("Keep learning daily!", (int)streakCard.x + 68, (int)streakCard.y + 78, 13, Theme::TEXT_MUTED);
 
-            // CARD 2: Practice Focus (Recommended area to improve)
+            // CARD 2: Needs Practice
             Rectangle focusCard = { contentX + cardW + cardGap, cardY, cardW, cardH };
             DrawRectangleRounded(focusCard, 0.16f, 8, Theme::PANEL_BG);
             DrawRectangleRoundedLines(focusCard, 0.16f, 8, Theme::BTN_PRIMARY);
             DrawCustomText("NEEDS PRACTICE", (int)focusCard.x + 20, (int)focusCard.y + 20, 14, Theme::TEXT_MUTED);
-            DrawCustomText(weakVal.c_str(), (int)focusCard.x + 20, (int)focusCard.y + 46, 21, Theme::TEXT_LIGHT);
+            DrawTextFitWidth(weakVal.c_str(), (int)focusCard.x + 20, (int)focusCard.y + 46, 17, cardW - 36.0f, Theme::TEXT_LIGHT);
             DrawCustomText("Focus on this topic next", (int)focusCard.x + 20, (int)focusCard.y + 78, 13, Theme::BTN_HOVER);
 
-            // CARD 3: Daily Lives (5 Lives per day, loses 1 on 0-score Quiz)
+            // CARD 3: Daily Lives
             Rectangle livesCard = { contentX + (cardW + cardGap) * 2, cardY, cardW, cardH };
             DrawRectangleRounded(livesCard, 0.16f, 8, Theme::PANEL_BG);
             DrawRectangleRoundedLines(livesCard, 0.16f, 8, (livesVal > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED);
@@ -466,14 +461,13 @@ int main() {
             for (int h = 0; h < 5; ++h) {
                 DrawHeartIcon(livesCard.x + 34 + h * 34, livesCard.y + 58, 1.2f, h < livesVal);
             }
-            DrawCustomText("0/4 in Quiz = -1 Life", (int)livesCard.x + 20, (int)livesCard.y + 80, 13, Theme::TEXT_MUTED);
+            DrawCustomText("0 score in Quiz = -1 Life", (int)livesCard.x + 20, (int)livesCard.y + 80, 13, Theme::TEXT_MUTED);
 
-            // Warning message if user tries to start Quiz with 0 lives
             if (!state.authErrorMsg.empty()) {
                 DrawCustomText(state.authErrorMsg.c_str(), (int)contentX, 142, 17, Theme::ERROR_COL);
             }
 
-            // --- 3. CENTER LEADERBOARD PANEL ---
+            // Center Leaderboard Panel
             Rectangle lbPanel = { contentX, 168.0f, contentW, screenHeight - 195.0f };
             DrawRectangleRounded(lbPanel, 0.04f, 8, Theme::SIDEBAR_BG);
             DrawRectangleRoundedLines(lbPanel, 0.04f, 8, Theme::BTN_SECONDARY);
@@ -508,7 +502,6 @@ int main() {
                 DrawCustomText(rankStr.c_str(), (int)rowRect.x + 22, (int)rowRect.y + 16, 22, rankCol);
                 DrawCustomText(sortedUsers[i].username.c_str(), (int)rowRect.x + 85, (int)rowRect.y + 17, 20, Theme::TEXT_LIGHT);
 
-                // Show user streak badge in leaderboard row
                 std::string streakBadge = TextFormat("%dd streak", sortedUsers[i].streak);
                 DrawCustomText(streakBadge.c_str(), (int)(rowRect.x + rowRect.width - 230), (int)rowRect.y + 19, 16, Theme::TEXT_MUTED);
 
@@ -519,37 +512,40 @@ int main() {
         }
 
         // ====================================================================
-        // TOP STATUS BAR FOR INNER SCREENS (THEORY / QUIZ / CONSTRUCTOR / VISUALIZER)
+        // TOP STATUS BAR FOR INNER SCREENS (COMPACT: y = 14..48)
         // ====================================================================
         else {
             const char* activeLangText = (state.language == TargetLang::LANG_C) ? "Active Lang: C" : "Active Lang: C++";
-            DrawRectangleRounded({ 20, 20, 210, 36 }, 0.3f, 6, Theme::PANEL_BG);
-            DrawCustomText(activeLangText, 35, 29, 18, Theme::WARNING_COL);
+            DrawRectangleRounded({ 20, 14, 195, 34 }, 0.3f, 6, Theme::PANEL_BG);
+            DrawCustomText(activeLangText, 35, 22, 17, Theme::WARNING_COL);
 
             if (state.currentUserIndex >= 0 && state.currentUserIndex < (int)state.registeredUsers.size()) {
                 User& currUser = state.registeredUsers[state.currentUserIndex];
                 std::string userBadge = TextFormat("User: %s | %d XP | %d Lives", currUser.username.c_str(), currUser.xp, currUser.lives);
-                DrawRectangleRounded({ 245, 20, 340, 36 }, 0.3f, 6, Theme::PANEL_BG);
-                DrawCustomText(userBadge.c_str(), 260, 29, 16, Theme::SUCCESS_COL);
+                DrawRectangleRounded({ 228, 14, 345, 34 }, 0.3f, 6, Theme::PANEL_BG);
+                DrawTextFitWidth(userBadge.c_str(), 242, 22, 16, 318.0f, Theme::SUCCESS_COL);
             }
         }
 
         // ====================================================================
         // SCREEN 3: THEORY TOPIC SELECTION
         // ====================================================================
-        if (state.currentScreen == ScreenState::THEORY_TOPICS) {
-            DrawCenteredText("SELECT A THEORY TOPIC", 90, 34, Theme::TEXT_LIGHT);
+        if (frameScreen == ScreenState::THEORY_TOPICS) {
+            DrawCenteredText("THEORY - SELECT A TOPIC", 68, 32, Theme::TEXT_LIGHT);
+            DrawCenteredText("Start from Topic 1 if you are brand new to programming!", 108, 18, Theme::TEXT_MUTED);
 
             for (size_t i = 0; i < db.theoryTopics.size(); ++i) {
-                Rectangle btnRect = { 350.0f, 190.0f + i * 85.0f, 500.0f, 65.0f };
-                if (DrawButton(btnRect, db.theoryTopics[i].topicName.c_str(), Theme::BTN_PRIMARY, 24)) {
+                int col = (int)(i % 2);
+                int row = (int)(i / 2);
+                Rectangle btnRect = { 70.0f + col * 540.0f, 152.0f + row * 82.0f, 520.0f, 64.0f };
+                if (DrawButton(btnRect, db.theoryTopics[i].topicName.c_str(), Theme::BTN_PRIMARY, 20)) {
                     state.selectedTopic = (int)i;
                     state.currentCard = 0;
                     state.currentScreen = ScreenState::THEORY_CARDS;
                 }
             }
 
-            if (DrawButton({ 480, 710, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
         }
@@ -557,35 +553,56 @@ int main() {
         // ====================================================================
         // SCREEN 4: THEORY FLASHCARDS
         // ====================================================================
-        else if (state.currentScreen == ScreenState::THEORY_CARDS) {
+        else if (frameScreen == ScreenState::THEORY_CARDS) {
             const auto& topic = db.theoryTopics[state.selectedTopic];
             const auto& card = topic.cards[state.currentCard];
 
-            DrawCenteredText(topic.topicName.c_str(), 70, 28, Theme::TEXT_MUTED);
+            DrawCenteredText(topic.topicName.c_str(), 64, 24, Theme::TEXT_MUTED);
 
-            Rectangle cardRect = { 220, 130, 760, 420 };
-            DrawRectangleRounded(cardRect, 0.06f, 10, Theme::PANEL_BG);
-            DrawRectangleRoundedLines(cardRect, 0.06f, 10, Theme::BTN_PRIMARY);
+            Rectangle cardRect = { 140, 108, 920, 475 };
+            DrawRectangleRounded(cardRect, 0.05f, 10, Theme::PANEL_BG);
+            DrawRectangleRoundedLines(cardRect, 0.05f, 10, Theme::BTN_PRIMARY);
 
-            std::string progress = TextFormat("Card %d of %d", state.currentCard + 1, (int)topic.cards.size());
-            DrawCustomText(progress.c_str(), 250, 155, 18, Theme::WARNING_COL);
-            DrawCenteredText(card.title.c_str(), 195, 32, Theme::TEXT_LIGHT);
-            DrawLine(260, 245, 940, 245, Theme::BTN_SECONDARY);
+            std::string progress = TextFormat("Lesson %d of %d", state.currentCard + 1, (int)topic.cards.size());
+            DrawCustomText(progress.c_str(), 175, 130, 18, Theme::WARNING_COL);
+            DrawCenteredText(card.title.c_str(), 164, 29, Theme::TEXT_LIGHT);
+            DrawLine(175, 208, 1025, 208, Theme::BTN_SECONDARY);
 
-            DrawTextWrapped(card.content, { 260, 275, 680, 240 }, 24, Theme::TEXT_LIGHT);
+            DrawTextWrapped(card.content, { 175, 228, 850, 340 }, 20, Theme::TEXT_LIGHT);
 
             if (state.currentCard > 0) {
-                if (DrawButton({ 220, 580, 180, 50 }, "< Previous", Theme::BTN_PRIMARY, 20)) {
+                if (DrawButton({ 140, 610, 190, 50 }, "< Previous", Theme::BTN_PRIMARY, 20)) {
                     state.currentCard--;
                 }
             }
             if (state.currentCard < (int)topic.cards.size() - 1) {
-                if (DrawButton({ 800, 580, 180, 50 }, "Next >", Theme::BTN_PRIMARY, 20)) {
+                if (DrawButton({ 870, 610, 190, 50 }, "Next >", Theme::BTN_PRIMARY, 20)) {
                     state.currentCard++;
                 }
             }
             else {
-                if (DrawButton({ 800, 580, 180, 50 }, "Finish Topic", Theme::SUCCESS_COL, 20)) {
+                if (state.selectedTopic < (int)db.quizTopics.size()) {
+                    if (DrawButton({ 640, 610, 210, 50 }, "Take Topic Quiz", Theme::WARNING_COL, 20)) {
+                        if (state.currentUserIndex >= 0) {
+                            state.registeredUsers[state.currentUserIndex].xp += 20;
+                            SaveUsers(state.registeredUsers);
+                        }
+                        if (state.currentUserIndex >= 0 && state.registeredUsers[state.currentUserIndex].lives <= 0) {
+                            state.authErrorMsg = "No lives left today! Come back tomorrow for Quizzes.";
+                            state.currentScreen = ScreenState::MAIN_MENU;
+                        }
+                        else {
+                            state.selectedQuizTopic = state.selectedTopic;
+                            state.currentQuestion = 0;
+                            state.score = 0;
+                            state.quizFinished = false;
+                            state.selectedAnswer = -1;
+                            state.feedbackTimer = 0.0f;
+                            state.currentScreen = ScreenState::QUIZ;
+                        }
+                    }
+                }
+                if (DrawButton({ 870, 610, 190, 50 }, "Finish Topic", Theme::SUCCESS_COL, 20)) {
                     if (state.currentUserIndex >= 0) {
                         state.registeredUsers[state.currentUserIndex].xp += 20;
                         SaveUsers(state.registeredUsers);
@@ -594,29 +611,59 @@ int main() {
                 }
             }
 
-            if (DrawButton({ 480, 710, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Topics", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::THEORY_TOPICS;
+            }
+        }
+
+        // ====================================================================
+        // SCREEN 5A: QUIZ TOPIC SELECTION
+        // ====================================================================
+        else if (frameScreen == ScreenState::QUIZ_TOPICS) {
+            DrawCenteredText("QUIZ - SELECT A TOPIC", 68, 32, Theme::TEXT_LIGHT);
+            DrawCenteredText("Choose a topic you studied in Theory to test your knowledge!", 108, 18, Theme::TEXT_MUTED);
+
+            for (size_t i = 0; i < db.quizTopics.size(); ++i) {
+                int col = (int)(i % 2);
+                int row = (int)(i / 2);
+                Rectangle btnRect = { 70.0f + col * 540.0f, 152.0f + row * 82.0f, 520.0f, 64.0f };
+                if (DrawButton(btnRect, db.quizTopics[i].topicName.c_str(), Theme::BTN_PRIMARY, 20)) {
+                    state.selectedQuizTopic = (int)i;
+                    state.currentQuestion = 0;
+                    state.score = 0;
+                    state.quizFinished = false;
+                    state.selectedAnswer = -1;
+                    state.feedbackTimer = 0.0f;
+                    state.currentScreen = ScreenState::QUIZ;
+                }
+            }
+
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
         }
 
         // ====================================================================
-        // SCREEN 5: QUIZ (KAHOOT STYLE + LIVES PENALTY ON 0 SCORE)
+        // SCREEN 5B: QUIZ GAME
         // ====================================================================
-        else if (state.currentScreen == ScreenState::QUIZ) {
+        else if (frameScreen == ScreenState::QUIZ) {
+            const auto& qTopic = db.quizTopics[state.selectedQuizTopic];
+
             if (!state.quizFinished) {
-                const auto& q = db.quizQuestions[state.currentQuestion];
+                const auto& q = qTopic.questions[state.currentQuestion];
 
-                std::string header = TextFormat("QUESTION %d OF %d", state.currentQuestion + 1, (int)db.quizQuestions.size());
-                DrawCenteredText(header.c_str(), 75, 24, Theme::WARNING_COL);
+                DrawCenteredText(qTopic.topicName.c_str(), 58, 20, Theme::TEXT_MUTED);
+                std::string header = TextFormat("QUESTION %d OF %d", state.currentQuestion + 1, (int)qTopic.questions.size());
+                DrawCenteredText(header.c_str(), 86, 22, Theme::WARNING_COL);
 
-                Rectangle qBox = { 150, 120, 900, 160 };
+                Rectangle qBox = { 130, 122, 940, 155 };
                 DrawRectangleRounded(qBox, 0.08f, 8, Theme::PANEL_BG);
-                DrawTextWrapped(q.question, { 180, 165, 840, 100 }, 28, Theme::TEXT_LIGHT);
+                DrawTextWrapped(q.question, { 165, 152, 870, 105 }, 24, Theme::TEXT_LIGHT);
 
                 for (int i = 0; i < 4; ++i) {
                     int col = i % 2;
                     int row = i / 2;
-                    Rectangle optRect = { 150.0f + col * 460.0f, 320.0f + row * 145.0f, 440.0f, 125.0f };
+                    Rectangle optRect = { 130.0f + col * 480.0f, 308.0f + row * 145.0f, 460.0f, 125.0f };
 
                     Color btnCol = kahootColors[i];
                     if (state.selectedAnswer != -1) {
@@ -625,7 +672,7 @@ int main() {
                         else btnCol = Theme::BTN_SECONDARY;
                     }
 
-                    if (DrawButton(optRect, q.options[i].c_str(), btnCol, 24) && state.selectedAnswer == -1) {
+                    if (DrawButton(optRect, q.options[i].c_str(), btnCol, 20) && state.selectedAnswer == -1) {
                         state.selectedAnswer = i;
                         if (i == q.correctIndex) {
                             state.score++;
@@ -635,9 +682,7 @@ int main() {
                             }
                         }
                         else if (state.currentUserIndex >= 0) {
-                            // Update weakTopic based on missed question
-                            state.registeredUsers[state.currentUserIndex].weakTopic =
-                                (state.language == TargetLang::LANG_C) ? "C Pointers & I/O" : "C++ OOP & STL";
+                            state.registeredUsers[state.currentUserIndex].weakTopic = qTopic.topicName;
                             SaveUsers(state.registeredUsers);
                         }
                         state.feedbackTimer = 1.4f;
@@ -646,21 +691,18 @@ int main() {
 
                 if (state.selectedAnswer != -1) {
                     state.feedbackTimer -= dt;
-                    const char* statusMsg = (state.selectedAnswer == q.correctIndex) ? "Correct!" : "Incorrect!";
+                    const char* statusMsg = (state.selectedAnswer == q.correctIndex) ? "Correct! +15 XP" : "Incorrect! Review this in Theory.";
                     Color statusCol = (state.selectedAnswer == q.correctIndex) ? Theme::SUCCESS_COL : Theme::ERROR_COL;
-                    DrawCenteredText(statusMsg, 630, 30, statusCol);
+                    DrawCenteredText(statusMsg, 625, 28, statusCol);
 
                     if (state.feedbackTimer <= 0.0f) {
                         state.selectedAnswer = -1;
                         state.currentQuestion++;
-                        if (state.currentQuestion >= (int)db.quizQuestions.size()) {
+                        if (state.currentQuestion >= (int)qTopic.questions.size()) {
                             state.quizFinished = true;
-                            // Deduct 1 life if the user scored 0 (all answers wrong)
                             if (state.score == 0 && state.currentUserIndex >= 0) {
                                 User& u = state.registeredUsers[state.currentUserIndex];
-                                if (u.lives > 0) {
-                                    u.lives -= 1;
-                                }
+                                if (u.lives > 0) u.lives -= 1;
                                 SaveUsers(state.registeredUsers);
                             }
                         }
@@ -668,78 +710,109 @@ int main() {
                 }
             }
             else {
-                DrawCenteredText("QUIZ COMPLETED!", 170, 44, Theme::SUCCESS_COL);
-                std::string scoreStr = TextFormat("Your Final Score: %d / %d", state.score, (int)db.quizQuestions.size());
-                DrawCenteredText(scoreStr.c_str(), 245, 32, Theme::TEXT_LIGHT);
+                DrawCenteredText("QUIZ COMPLETED!", 160, 44, Theme::SUCCESS_COL);
+                DrawCenteredText(qTopic.topicName.c_str(), 218, 24, Theme::TEXT_MUTED);
+                std::string scoreStr = TextFormat("Your Final Score: %d / %d", state.score, (int)qTopic.questions.size());
+                DrawCenteredText(scoreStr.c_str(), 265, 32, Theme::TEXT_LIGHT);
 
                 if (state.score == 0) {
-                    DrawCenteredText("0 correct answers! You lost 1 Daily Life.", 300, 22, Theme::ERROR_COL);
+                    DrawCenteredText("0 correct answers! You lost 1 Daily Life.", 320, 22, Theme::ERROR_COL);
                 }
 
                 bool canRetry = true;
                 if (state.currentUserIndex >= 0 && state.registeredUsers[state.currentUserIndex].lives <= 0) {
                     canRetry = false;
-                    DrawCenteredText("Out of lives for today!", 340, 20, Theme::WARNING_COL);
+                    DrawCenteredText("Out of lives for today!", 355, 20, Theme::WARNING_COL);
                 }
 
                 if (canRetry) {
-                    if (DrawButton({ 480, 390, 240, 55 }, "Retry Quiz", Theme::BTN_PRIMARY, 22)) {
+                    if (DrawButton({ 340, 410, 240, 55 }, "Retry This Topic", Theme::BTN_PRIMARY, 20)) {
                         state.currentQuestion = 0;
                         state.score = 0;
                         state.quizFinished = false;
                         state.selectedAnswer = -1;
                     }
+                    if (DrawButton({ 620, 410, 240, 55 }, "Other Quiz Topics", Theme::SUCCESS_COL, 20)) {
+                        state.currentScreen = ScreenState::QUIZ_TOPICS;
+                    }
                 }
             }
 
-            if (DrawButton({ 480, 710, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Quiz Topics", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::QUIZ_TOPICS;
+            }
+        }
+
+        // ====================================================================
+        // SCREEN 6A: CONSTRUCTOR TOPIC SELECTION
+        // ====================================================================
+        else if (frameScreen == ScreenState::CONSTRUCTOR_TOPICS) {
+            DrawCenteredText("CODE CONSTRUCTOR - SELECT A TOPIC", 68, 32, Theme::TEXT_LIGHT);
+            DrawCenteredText("Choose a topic first, then build its lab challenges block-by-block!", 108, 18, Theme::TEXT_MUTED);
+
+            for (size_t i = 0; i < db.constructorTopics.size(); ++i) {
+                int col = (int)(i % 2);
+                int row = (int)(i / 2);
+                Rectangle btnRect = { 70.0f + col * 540.0f, 152.0f + row * 82.0f, 520.0f, 64.0f };
+                if (DrawButton(btnRect, db.constructorTopics[i].topicName.c_str(), Theme::BTN_PRIMARY, 20)) {
+                    state.selectedConstructorTopic = (int)i;
+                    state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
+                }
+            }
+
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
         }
 
         // ====================================================================
-        // SCREEN 6: CONSTRUCTOR LEVEL SELECTION
+        // SCREEN 6B: CONSTRUCTOR LEVEL SELECTION INSIDE CHOSEN TOPIC
         // ====================================================================
-        else if (state.currentScreen == ScreenState::CONSTRUCTOR_LEVELS) {
-            DrawCenteredText("CODE CONSTRUCTOR - SELECT LEVEL", 90, 34, Theme::TEXT_LIGHT);
-            DrawCenteredText("Drag and drop code blocks into the right order and watch the car inspect your code!", 140, 20, Theme::TEXT_MUTED);
+        else if (frameScreen == ScreenState::CONSTRUCTOR_LEVELS) {
+            const auto& cTopic = db.constructorTopics[state.selectedConstructorTopic];
+            DrawCenteredText(cTopic.topicName.c_str(), 68, 30, Theme::TEXT_LIGHT);
+            DrawCenteredText("Select a Code Constructor Lab for this topic:", 112, 19, Theme::TEXT_MUTED);
 
-            for (size_t i = 0; i < db.constructorLevels.size(); ++i) {
-                Rectangle btnRect = { 350.0f, 220.0f + i * 85.0f, 500.0f, 65.0f };
-                if (DrawButton(btnRect, db.constructorLevels[i].levelTitle.c_str(), Theme::BTN_PRIMARY, 24)) {
+            for (size_t i = 0; i < cTopic.levels.size(); ++i) {
+                Rectangle btnRect = { 300.0f, 185.0f + i * 88.0f, 600.0f, 68.0f };
+                if (DrawButton(btnRect, cTopic.levels[i].levelTitle.c_str(), Theme::BTN_PRIMARY, 22)) {
                     state.selectedConstructorLevel = (int)i;
-                    InitConstructorLevel(state, db.constructorLevels[i]);
+                    InitConstructorLevel(state, cTopic.levels[i]);
                     state.currentScreen = ScreenState::CONSTRUCTOR_GAME;
                 }
             }
 
-            if (DrawButton({ 480, 710, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
-                state.currentScreen = ScreenState::MAIN_MENU;
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Topics", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::CONSTRUCTOR_TOPICS;
             }
         }
 
         // ====================================================================
-        // SCREEN 7: CONSTRUCTOR GAME
+        // SCREEN 7: CONSTRUCTOR GAME (CLEAN NON-OVERLAPPING LAYOUT)
         // ====================================================================
-        else if (state.currentScreen == ScreenState::CONSTRUCTOR_GAME) {
-            const auto& level = db.constructorLevels[state.selectedConstructorLevel];
+        else if (frameScreen == ScreenState::CONSTRUCTOR_GAME) {
+            const auto& cTopic = db.constructorTopics[state.selectedConstructorTopic];
+            const auto& level = cTopic.levels[state.selectedConstructorLevel];
             int numSlots = (int)level.correctLines.size();
 
-            DrawCenteredText(level.levelTitle.c_str(), 25, 28, Theme::TEXT_LIGHT);
-            DrawCenteredText("Drag code blocks from the bottom pool into the empty slots:", 60, 18, Theme::TEXT_MUTED);
+            // Title placed cleanly BELOW the top status bar (y = 58)
+            DrawCenteredText(level.levelTitle.c_str(), 58, 24, Theme::TEXT_LIGHT);
+            DrawCenteredText("Drag code blocks from the bottom pool into the numbered slots, then click Ready:", 86, 15, Theme::TEXT_MUTED);
 
+            // Car track (y = 144)
+            DrawLine(180, 144, 1020, 144, Theme::BTN_SECONDARY);
+            DrawCar(state.carX, 104, state.carCrashed);
+
+            // Slots (start y = 156, spacing = 44 -> max 6 slots ends at y = 416)
             std::vector<Rectangle> slotRects(numSlots);
             for (int i = 0; i < numSlots; ++i) {
-                slotRects[i] = { 240.0f, 135.0f + i * 48.0f, 720.0f, 40.0f };
+                slotRects[i] = { 210.0f, 156.0f + i * 44.0f, 780.0f, 38.0f };
             }
 
-            DrawLine(200, 122, 1000, 122, Theme::BTN_SECONDARY);
-            DrawCar(state.carX, 82, state.carCrashed);
-
             if (state.isCarMoving && !state.carCrashed && !state.levelSuccess) {
-                state.carX += 260.0f * dt;
-                float stepWidth = 720.0f / (float)numSlots;
-                int currentInspectSlot = (int)((state.carX - 200.0f) / stepWidth);
+                state.carX += 270.0f * dt;
+                float stepWidth = 780.0f / (float)numSlots;
+                int currentInspectSlot = (int)((state.carX - 180.0f) / stepWidth);
 
                 if (currentInspectSlot >= 0 && currentInspectSlot < numSlots) {
                     int bIdx = state.slotBlockIndex[currentInspectSlot];
@@ -750,8 +823,9 @@ int main() {
                         state.isCarMoving = false;
                         state.firstErrorLine = currentInspectSlot;
                         state.showErrorModal = true;
+                        state.errorModalScrollY = 0.0f;
                         if (state.currentUserIndex >= 0) {
-                            state.registeredUsers[state.currentUserIndex].weakTopic = level.levelTitle;
+                            state.registeredUsers[state.currentUserIndex].weakTopic = cTopic.topicName;
                             SaveUsers(state.registeredUsers);
                         }
                     }
@@ -784,11 +858,12 @@ int main() {
 
                 DrawRectangleRounded(slotRects[i], 0.2f, 6, slotCol);
                 DrawRectangleRoundedLines(slotRects[i], 0.2f, 6, Theme::BTN_SECONDARY);
-                DrawCustomText(TextFormat("%d.", i + 1), (int)slotRects[i].x - 35, (int)slotRects[i].y + 10, 20, Theme::TEXT_MUTED);
+                DrawCustomText(TextFormat("%d.", i + 1), (int)slotRects[i].x - 36, (int)slotRects[i].y + 9, 19, Theme::TEXT_MUTED);
             }
 
-            DrawLine(100, 465, 1100, 465, Theme::BTN_SECONDARY);
-            DrawCustomText("Available Code Blocks:", 140, 442, 18, Theme::TEXT_MUTED);
+            // Divider & Pool header (y = 436..474)
+            DrawLine(65, 436, 1135, 436, Theme::BTN_SECONDARY);
+            DrawCustomText("Available Code Blocks (drag into slots above):", 65, 448, 17, Theme::TEXT_MUTED);
 
             bool interactionLocked = state.isCarMoving || state.showErrorModal || state.levelSuccess;
             if (!interactionLocked) {
@@ -816,8 +891,8 @@ int main() {
                             for (int s = 0; s < numSlots; ++s) {
                                 if (CheckCollisionPointRec(mouse, slotRects[s]) && state.slotBlockIndex[s] == -1) {
                                     b.currentSlot = s;
-                                    b.rect.x = slotRects[s].x + 10;
-                                    b.rect.y = slotRects[s].y + 1;
+                                    b.rect.x = slotRects[s].x + 8.0f;
+                                    b.rect.y = slotRects[s].y + 1.0f;
                                     state.slotBlockIndex[s] = (int)(&b - &state.blocks[0]);
                                     break;
                                 }
@@ -827,37 +902,43 @@ int main() {
                 }
             }
 
-            for (size_t i = 0; i < state.blocks.size(); ++i) {
-                const auto& b = state.blocks[i];
-                Color blockColor = Theme::BTN_PRIMARY;
+            // Draw non-dragging blocks first, then dragging block on top
+            for (int pass = 0; pass < 2; ++pass) {
+                for (size_t i = 0; i < state.blocks.size(); ++i) {
+                    const auto& b = state.blocks[i];
+                    if ((pass == 0 && b.isDragging) || (pass == 1 && !b.isDragging)) continue;
 
-                if (b.currentSlot != -1) {
-                    if (state.carTargetLine > b.currentSlot) {
-                        blockColor = Theme::SUCCESS_COL;
+                    Color blockColor = Theme::BTN_PRIMARY;
+                    if (b.currentSlot != -1) {
+                        if (state.carTargetLine > b.currentSlot) {
+                            blockColor = Theme::SUCCESS_COL;
+                        }
+                        else if (state.carCrashed && b.text != level.correctLines[b.currentSlot]) {
+                            blockColor = Theme::ERROR_COL;
+                        }
                     }
-                    else if (state.carCrashed && b.text != level.correctLines[b.currentSlot]) {
-                        blockColor = Theme::ERROR_COL;
-                    }
+
+                    DrawRectangleRounded(b.rect, 0.2f, 6, blockColor);
+                    DrawRectangleRoundedLines(b.rect, 0.2f, 6, Theme::TEXT_LIGHT);
+                    DrawTextFitWidth(b.text.c_str(), (int)b.rect.x + 12, (int)b.rect.y + 9, 17, b.rect.width - 24.0f, Theme::TEXT_LIGHT);
                 }
-
-                DrawRectangleRounded(b.rect, 0.2f, 6, blockColor);
-                DrawRectangleRoundedLines(b.rect, 0.2f, 6, Theme::TEXT_LIGHT);
-                DrawCustomText(b.text.c_str(), (int)b.rect.x + 14, (int)b.rect.y + 9, 20, Theme::TEXT_LIGHT);
             }
 
+            // Bottom action buttons (y = 720)
             if (!state.isCarMoving && !state.levelSuccess && !state.showErrorModal) {
                 if (DrawButton({ 740, 720, 220, 50 }, "Ready (Run Car)", Theme::SUCCESS_COL, 20)) {
-                    state.carX = 200.0f;
+                    state.carX = 180.0f;
                     state.carTargetLine = 0;
                     state.carCrashed = false;
                     state.isCarMoving = true;
                 }
             }
 
-            if (DrawButton({ 240, 720, 220, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
-                state.currentScreen = ScreenState::MAIN_MENU;
+            if (DrawButton({ 240, 720, 220, 50 }, "Back to Labs", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
             }
 
+            // Success Modal
             if (state.levelSuccess) {
                 DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 185 });
                 Rectangle modal = { 280, 220, 640, 320 };
@@ -870,80 +951,170 @@ int main() {
                 if (DrawButton({ 340, 440, 230, 50 }, "Play Again", Theme::BTN_PRIMARY, 20)) {
                     InitConstructorLevel(state, level);
                 }
-                if (DrawButton({ 630, 440, 230, 50 }, "Main Menu", Theme::BTN_SECONDARY, 20)) {
-                    state.currentScreen = ScreenState::MAIN_MENU;
+                if (DrawButton({ 630, 440, 230, 50 }, "Topic Labs", Theme::BTN_SECONDARY, 20)) {
+                    state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
                 }
             }
 
+            // Error Modal (WITH SCISSOR CLIPPING & MOUSE WHEEL SCROLLING)
             if (state.showErrorModal) {
                 DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 });
-                Rectangle modal = { 140, 90, 920, 620 };
+                Rectangle modal = { 130, 75, 940, 650 };
                 DrawRectangleRounded(modal, 0.05f, 10, Theme::PANEL_BG);
                 DrawRectangleRoundedLines(modal, 0.05f, 10, Theme::ERROR_COL);
 
-                DrawCenteredText("CAR CRASHED! CODE ERRORS DETECTED", 115, 30, Theme::ERROR_COL);
-                std::string crashInfo = TextFormat("First breakdown occurred at Line %d. Review your mistakes below:", state.firstErrorLine + 1);
-                DrawCenteredText(crashInfo.c_str(), 155, 20, Theme::WARNING_COL);
+                DrawCenteredText("CAR CRASHED! CODE ERRORS DETECTED", 100, 28, Theme::ERROR_COL);
+                std::string crashInfo = TextFormat("First breakdown at Line %d. Scroll down if there are multiple errors:", state.firstErrorLine + 1);
+                DrawCenteredText(crashInfo.c_str(), 138, 18, Theme::WARNING_COL);
 
                 std::string errorReport = "";
                 for (int s = 0; s < numSlots; ++s) {
                     int bIdx = state.slotBlockIndex[s];
                     std::string userCode = (bIdx == -1) ? "[Empty Slot]" : state.blocks[bIdx].text;
                     if (userCode != level.correctLines[s]) {
-                        errorReport += TextFormat("Line %d:\n  Your block: %s\n  Correct block: %s\n  Why: %s\n\n",
+                        errorReport += TextFormat("Line %d:\n  Your block: %s\n  Expected:   %s\n  Why: %s\n\n",
                             s + 1, userCode.c_str(), level.correctLines[s].c_str(), level.slotExplanations[s].c_str());
                     }
                 }
 
-                DrawTextWrapped(errorReport, { 180, 195, 840, 410 }, 18, Theme::TEXT_LIGHT);
+                Rectangle reportViewport = { 165, 175, 870, 445 };
+                DrawRectangleRounded(reportViewport, 0.03f, 6, Theme::BG_DARK);
 
-                if (DrawButton({ 330, 635, 240, 50 }, "Retry Level", Theme::BTN_PRIMARY, 20)) {
+                float contentH = MeasureTextWrappedHeight(errorReport, reportViewport.width - 36.0f, 17) + 20.0f;
+                float maxScroll = std::max(0.0f, contentH - reportViewport.height);
+
+                float wheel = GetMouseWheelMove();
+                if (wheel != 0.0f) state.errorModalScrollY -= wheel * 35.0f;
+                if (IsKeyDown(KEY_DOWN)) state.errorModalScrollY += 260.0f * dt;
+                if (IsKeyDown(KEY_UP)) state.errorModalScrollY -= 260.0f * dt;
+                state.errorModalScrollY = std::clamp(state.errorModalScrollY, 0.0f, maxScroll);
+
+                BeginScissorMode((int)reportViewport.x + 4, (int)reportViewport.y + 4,
+                    (int)reportViewport.width - 8, (int)reportViewport.height - 8);
+                DrawTextWrapped(errorReport,
+                    { reportViewport.x + 18.0f, reportViewport.y + 12.0f - state.errorModalScrollY,
+                      reportViewport.width - 36.0f, contentH },
+                    17, Theme::TEXT_LIGHT);
+                EndScissorMode();
+
+                // Scrollbar indicator if needed
+                if (maxScroll > 0.0f) {
+                    float barH = std::max(36.0f, reportViewport.height * (reportViewport.height / contentH));
+                    float barY = reportViewport.y + (state.errorModalScrollY / maxScroll) * (reportViewport.height - barH);
+                    DrawRectangleRounded({ reportViewport.x + reportViewport.width - 10.0f, barY, 6.0f, barH }, 0.5f, 4, Theme::TEXT_MUTED);
+                }
+
+                if (DrawButton({ 330, 645, 240, 50 }, "Retry Level", Theme::BTN_PRIMARY, 20)) {
                     InitConstructorLevel(state, level);
                 }
-                if (DrawButton({ 630, 635, 240, 50 }, "Main Menu", Theme::BTN_SECONDARY, 20)) {
-                    state.currentScreen = ScreenState::MAIN_MENU;
+                if (DrawButton({ 630, 645, 240, 50 }, "Topic Labs", Theme::BTN_SECONDARY, 20)) {
+                    state.currentScreen = ScreenState::CONSTRUCTOR_LEVELS;
                 }
             }
         }
 
         // ====================================================================
-        // SCREEN 8: VISUALIZER LEVEL SELECTION
+        // SCREEN 8A: VISUALIZER TOPIC SELECTION
         // ====================================================================
-        else if (state.currentScreen == ScreenState::VISUALIZER_LEVELS) {
-            DrawCenteredText("CODE VISUALIZER - SELECT LEVEL", 90, 34, Theme::TEXT_LIGHT);
-            DrawCenteredText("Inspect code execution line-by-line with interactive explanations", 140, 20, Theme::TEXT_MUTED);
+        else if (frameScreen == ScreenState::VISUALIZER_TOPICS) {
+            DrawCenteredText("CODE VISUALIZER - SELECT A TOPIC", 68, 32, Theme::TEXT_LIGHT);
+            DrawCenteredText("Choose a topic first, then inspect its lab solutions line-by-line!", 108, 18, Theme::TEXT_MUTED);
 
-            for (size_t i = 0; i < db.visualizerLevels.size(); ++i) {
-                Rectangle btnRect = { 350.0f, 220.0f + i * 85.0f, 500.0f, 65.0f };
-                if (DrawButton(btnRect, db.visualizerLevels[i].levelTitle.c_str(), Theme::BTN_PRIMARY, 24)) {
-                    state.selectedVisualizerLevel = (int)i;
-                    InitVisualizerLevel(state, db.visualizerLevels[i]);
-                    state.currentScreen = ScreenState::VISUALIZER_VIEW;
+            for (size_t i = 0; i < db.visualizerTopics.size(); ++i) {
+                int col = (int)(i % 2);
+                int row = (int)(i / 2);
+                Rectangle btnRect = { 70.0f + col * 540.0f, 152.0f + row * 82.0f, 520.0f, 64.0f };
+                if (DrawButton(btnRect, db.visualizerTopics[i].topicName.c_str(), Theme::BTN_PRIMARY, 20)) {
+                    state.selectedVisualizerTopic = (int)i;
+                    state.currentScreen = ScreenState::VISUALIZER_LEVELS;
                 }
             }
 
-            if (DrawButton({ 480, 710, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Main Menu", Theme::BTN_SECONDARY, 20)) {
                 state.currentScreen = ScreenState::MAIN_MENU;
             }
         }
 
         // ====================================================================
-        // SCREEN 9: VISUALIZER STEP-BY-STEP VIEW
+        // SCREEN 8B: VISUALIZER LEVEL SELECTION INSIDE CHOSEN TOPIC
         // ====================================================================
-        else if (state.currentScreen == ScreenState::VISUALIZER_VIEW) {
-            const auto& level = db.visualizerLevels[state.selectedVisualizerLevel];
-            DrawCenteredText(level.levelTitle.c_str(), 30, 30, Theme::TEXT_LIGHT);
+        else if (frameScreen == ScreenState::VISUALIZER_LEVELS) {
+            const auto& vTopic = db.visualizerTopics[state.selectedVisualizerTopic];
+            DrawCenteredText(vTopic.topicName.c_str(), 68, 30, Theme::TEXT_LIGHT);
+            DrawCenteredText("Select a Visualizer Lab Walkthrough for this topic:", 112, 19, Theme::TEXT_MUTED);
 
-            float curY = 85.0f;
+            for (size_t i = 0; i < vTopic.levels.size(); ++i) {
+                Rectangle btnRect = { 300.0f, 185.0f + i * 88.0f, 600.0f, 68.0f };
+                if (DrawButton(btnRect, vTopic.levels[i].levelTitle.c_str(), Theme::BTN_PRIMARY, 22)) {
+                    state.selectedVisualizerLevel = (int)i;
+                    InitVisualizerLevel(state, vTopic.levels[i]);
+                    state.currentScreen = ScreenState::VISUALIZER_VIEW;
+                }
+            }
+
+            if (DrawButton({ 480, 715, 240, 50 }, "Back to Topics", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::VISUALIZER_TOPICS;
+            }
+        }
+
+        // ====================================================================
+        // SCREEN 9: VISUALIZER STEP-BY-STEP VIEW (SCROLLABLE + DYNAMIC BOXES)
+        // ====================================================================
+        else if (frameScreen == ScreenState::VISUALIZER_VIEW) {
+            const auto& vTopic = db.visualizerTopics[state.selectedVisualizerTopic];
+            const auto& level = vTopic.levels[state.selectedVisualizerLevel];
+
+            // Title cleanly BELOW the top status bar (y = 58)
+            DrawCenteredText(level.levelTitle.c_str(), 58, 26, Theme::TEXT_LIGHT);
+
+            Rectangle viewport = { 75.0f, 100.0f, 1050.0f, 560.0f };
+            DrawRectangleRounded(viewport, 0.03f, 8, Theme::SIDEBAR_BG);
+            DrawRectangleRoundedLines(viewport, 0.03f, 8, Theme::BTN_SECONDARY);
+
+            // Compute total dynamic content height first so scrolling clamps accurately
+            float totalContentH = 16.0f;
             for (int i = 0; i < state.revealedLinesCount && i < (int)level.steps.size(); ++i) {
-                Rectangle lineBox = { 140.0f, curY, 720.0f, 38.0f };
+                totalContentH += 44.0f; // code line box + gap
+                if (!state.explanationVisible[i] && !state.stepUnderstood[i]) {
+                    totalContentH += 42.0f; // Explanation button
+                }
+                if (state.explanationVisible[i]) {
+                    float expTextH = MeasureTextWrappedHeight(level.steps[i].explanation, 720.0f, 17);
+                    float expBoxH = std::max(46.0f, expTextH + 20.0f);
+                    totalContentH += expBoxH + 8.0f;
+                    if (!state.stepUnderstood[i]) {
+                        totalContentH += 42.0f; // Got It! button
+                    }
+                }
+            }
+            totalContentH += 20.0f;
+
+            float maxScroll = std::max(0.0f, totalContentH - viewport.height);
+            if (!state.showIntroModal) {
+                float wheel = GetMouseWheelMove();
+                if (wheel != 0.0f) state.visualizerScrollY -= wheel * 40.0f;
+                if (IsKeyDown(KEY_DOWN)) state.visualizerScrollY += 260.0f * dt;
+                if (IsKeyDown(KEY_UP)) state.visualizerScrollY -= 260.0f * dt;
+            }
+            state.visualizerScrollY = std::clamp(state.visualizerScrollY, 0.0f, maxScroll);
+
+            // Clipped scrollable drawing of all revealed lines & dynamic explanation boxes
+            BeginScissorMode((int)viewport.x + 4, (int)viewport.y + 4,
+                (int)viewport.width - 8, (int)viewport.height - 8);
+
+            bool mouseInViewport = CheckCollisionPointRec(mouse, viewport) && !state.showIntroModal;
+            float curY = viewport.y + 16.0f - state.visualizerScrollY;
+
+            for (int i = 0; i < state.revealedLinesCount && i < (int)level.steps.size(); ++i) {
+                Rectangle lineBox = { 105.0f, curY, 790.0f, 38.0f };
                 DrawRectangleRounded(lineBox, 0.2f, 6, Theme::PANEL_BG);
                 DrawRectangleRoundedLines(lineBox, 0.2f, 6, Theme::BTN_PRIMARY);
-                DrawCustomText(level.steps[i].codeLine.c_str(), 160, (int)curY + 9, 20, Theme::TEXT_LIGHT);
+                DrawTextFitWidth(level.steps[i].codeLine.c_str(), 122, (int)curY + 9, 18, lineBox.width - 28.0f, Theme::TEXT_LIGHT);
 
                 if (state.stepUnderstood[i]) {
                     const char* toggleLabel = state.explanationVisible[i] ? "Hide Info" : "Show Info";
-                    if (DrawButton({ 880.0f, curY, 160.0f, 38.0f }, toggleLabel, Theme::BTN_SECONDARY, 18)) {
+                    Rectangle toggleRect = { 912.0f, curY, 175.0f, 38.0f };
+                    if (DrawButton(toggleRect, toggleLabel, Theme::BTN_SECONDARY, 17) && mouseInViewport) {
                         state.explanationVisible[i] = !state.explanationVisible[i];
                     }
                 }
@@ -951,21 +1122,25 @@ int main() {
                 curY += 44.0f;
 
                 if (!state.explanationVisible[i] && !state.stepUnderstood[i]) {
-                    if (DrawButton({ 160.0f, curY, 190.0f, 36.0f }, "Explanation", Theme::WARNING_COL, 18)) {
+                    Rectangle expBtn = { 125.0f, curY, 190.0f, 34.0f };
+                    if (DrawButton(expBtn, "Explanation", Theme::WARNING_COL, 18) && mouseInViewport) {
                         state.explanationVisible[i] = true;
                     }
-                    curY += 44.0f;
+                    curY += 42.0f;
                 }
 
                 if (state.explanationVisible[i]) {
-                    Rectangle expBox = { 160.0f, curY, 700.0f, 52.0f };
-                    DrawRectangleRounded(expBox, 0.2f, 6, { 30, 58, 50, 255 });
-                    DrawRectangleRoundedLines(expBox, 0.2f, 6, Theme::SUCCESS_COL);
-                    DrawTextWrapped(level.steps[i].explanation, { 175.0f, curY + 8.0f, 670.0f, 40.0f }, 18, Theme::TEXT_LIGHT);
-                    curY += 58.0f;
+                    float expTextH = MeasureTextWrappedHeight(level.steps[i].explanation, 720.0f, 17);
+                    float expBoxH = std::max(46.0f, expTextH + 20.0f);
+                    Rectangle expBox = { 125.0f, curY, 760.0f, expBoxH };
+                    DrawRectangleRounded(expBox, 0.16f, 6, { 30, 58, 50, 255 });
+                    DrawRectangleRoundedLines(expBox, 0.16f, 6, Theme::SUCCESS_COL);
+                    DrawTextWrapped(level.steps[i].explanation, { 145.0f, curY + 10.0f, 720.0f, expTextH + 8.0f }, 17, Theme::TEXT_LIGHT);
+                    curY += expBoxH + 8.0f;
 
                     if (!state.stepUnderstood[i]) {
-                        if (DrawButton({ 160.0f, curY, 160.0f, 36.0f }, "Got It!", Theme::SUCCESS_COL, 18)) {
+                        Rectangle gotItBtn = { 125.0f, curY, 160.0f, 34.0f };
+                        if (DrawButton(gotItBtn, "Got It!", Theme::SUCCESS_COL, 18) && mouseInViewport) {
                             state.stepUnderstood[i] = true;
                             state.explanationVisible[i] = false;
                             if (state.revealedLinesCount < (int)level.steps.size()) {
@@ -976,36 +1151,52 @@ int main() {
                                 SaveUsers(state.registeredUsers);
                             }
                         }
-                        curY += 44.0f;
+                        curY += 42.0f;
                     }
                 }
             }
 
-            if (state.stepUnderstood.back()) {
-                DrawCenteredText("All lines analyzed! You can toggle any explanation above or return to the menu.", 675, 20, Theme::SUCCESS_COL);
+            EndScissorMode();
+
+            // Draw scrollbar if content overflows viewport
+            if (maxScroll > 0.0f) {
+                float barH = std::max(40.0f, viewport.height * (viewport.height / totalContentH));
+                float barY = viewport.y + (state.visualizerScrollY / maxScroll) * (viewport.height - barH);
+                DrawRectangleRounded({ viewport.x + viewport.width - 12.0f, barY, 7.0f, barH }, 0.5f, 4, Theme::TEXT_MUTED);
             }
 
-            if (DrawButton({ 480, 720, 240, 50 }, "Exit to Main Menu", Theme::BTN_SECONDARY, 20)) {
-                state.currentScreen = ScreenState::MAIN_MENU;
+            if (!state.stepUnderstood.empty() && state.stepUnderstood.back()) {
+                DrawCenteredText("All lines analyzed! Scroll or toggle any explanation above, or pick another lab.", 674, 18, Theme::SUCCESS_COL);
+            }
+            else if (maxScroll > 0.0f) {
+                DrawCenteredText("Tip: Use Mouse Wheel or Up/Down keys to scroll through steps.", 674, 16, Theme::TEXT_MUTED);
             }
 
+            if (DrawButton({ 480, 718, 240, 50 }, "Back to Labs", Theme::BTN_SECONDARY, 20)) {
+                state.currentScreen = ScreenState::VISUALIZER_LEVELS;
+            }
+
+            // Intro Modal
             if (state.showIntroModal) {
                 DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 205 });
-                Rectangle modal = { 220, 110, 760, 560 };
-                DrawRectangleRounded(modal, 0.06f, 10, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(modal, 0.06f, 10, Theme::BTN_PRIMARY);
+                Rectangle modal = { 180, 85, 840, 610 };
+                DrawRectangleRounded(modal, 0.05f, 10, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(modal, 0.05f, 10, Theme::BTN_PRIMARY);
 
-                DrawCenteredText("CODE OVERVIEW", 140, 32, Theme::WARNING_COL);
-                DrawCenteredText("Here is the complete code we are going to break down now:", 185, 20, Theme::TEXT_LIGHT);
+                DrawCenteredText("LAB CODE OVERVIEW", 112, 30, Theme::WARNING_COL);
+                DrawCenteredText("Here is the complete code we will break down step-by-step:", 152, 18, Theme::TEXT_LIGHT);
 
-                Rectangle codeBox = { 270, 225, 660, 330 };
-                DrawRectangleRounded(codeBox, 0.05f, 8, Theme::BG_DARK);
-                DrawTextWrapped(level.fullCode, { 295, 245, 610, 290 }, 22, Theme::SUCCESS_COL);
+                Rectangle codeBox = { 220, 190, 760, 405 };
+                DrawRectangleRounded(codeBox, 0.04f, 8, Theme::BG_DARK);
 
-                if (DrawButton({ 320, 585, 220, 50 }, "Cancel (Main Menu)", Theme::ERROR_COL, 20)) {
-                    state.currentScreen = ScreenState::MAIN_MENU;
+                BeginScissorMode((int)codeBox.x + 4, (int)codeBox.y + 4, (int)codeBox.width - 8, (int)codeBox.height - 8);
+                DrawTextWrapped(level.fullCode, { codeBox.x + 22.0f, codeBox.y + 18.0f, codeBox.width - 44.0f, codeBox.height - 30.0f }, 18, Theme::SUCCESS_COL);
+                EndScissorMode();
+
+                if (DrawButton({ 320, 620, 220, 50 }, "Back to Labs", Theme::ERROR_COL, 20)) {
+                    state.currentScreen = ScreenState::VISUALIZER_LEVELS;
                 }
-                if (DrawButton({ 660, 585, 220, 50 }, "Let's Go!", Theme::SUCCESS_COL, 20)) {
+                if (DrawButton({ 660, 620, 220, 50 }, "Let's Go!", Theme::SUCCESS_COL, 20)) {
                     state.showIntroModal = false;
                 }
             }
