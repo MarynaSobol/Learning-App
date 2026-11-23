@@ -82,12 +82,12 @@ struct ConstructorTopic { // Group Code Constructor levels under one topic
     std::vector<ConstructorLevel> levels; // List of Constructor labs belonging to this topic
 };
 
-struct DraggableBlock { // Track runtime position and interaction state of a movable code block
-    std::string text; // Source code text shown on the block
-    Rectangle rect; // Current screen bounds of the block
-    int currentSlot; // Index of the slot holding this block or -1 if unslotted
-    bool isDragging; // Flag indicating whether the user is actively dragging this block
-    Vector2 dragOffset; // Offset between the mouse cursor and the block's top-left corner
+struct DraggableBlock {
+    std::string text;
+    Rectangle rect = { 0, 0, 0, 0 };
+    int currentSlot = -1;
+    bool isDragging = false;
+    Vector2 dragOffset = { 0, 0 };
 };
 
 struct CodeStep { // Pair a single line of code with its walkthrough explanation
@@ -205,6 +205,14 @@ struct AppState { // Hold all active runtime state across every screen and mode
     std::vector<std::string> examUserText; // Recorded text input responses for each exam question
     int examScore = 0; // Total number of correct answers achieved in the current exam
     float examReviewScrollY = 0.0f; // Vertical scroll offset inside the Exam review screen
+
+    // --- Profile View Runtime State ---
+    bool showProfileView = false;          // Toggles right-side dashboard between Leaderboard and Profile
+    bool showEditNameModal = false;        // Controls visibility of the Edit Username modal
+    bool showDeleteAccountModal = false;   // Controls visibility of the Delete Account confirmation modal
+    char editNameBuffer[32] = "\0";        // Input buffer for editing the username
+    std::string profileErrorMsg = "";      // Validation error message inside the Edit Username modal
+    float profileDetailsScrollY = 0.0f;    // Vertical scroll offset inside the Learning Progress details box
 };
 
 #endif // End of APP_TYPES_H include guard

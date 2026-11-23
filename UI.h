@@ -212,4 +212,11 @@ inline void DrawCar(float x, float y, bool crashed) { // Render the Code Constru
     }
 }
 
+inline void DrawAvatarIcon(float cx, float cy, float radius) { // Render a stylized user avatar icon
+    DrawCircle((int)cx, (int)cy, radius, Theme::BTN_PRIMARY); // Draw circular avatar background
+    DrawCircleLines((int)cx, (int)cy, radius, Theme::TEXT_LIGHT); // Draw crisp outer ring
+    DrawCircle((int)cx, (int)(cy - radius * 0.22f), radius * 0.30f, Theme::TEXT_LIGHT); // Draw head
+    DrawCircleSector({ cx, cy + radius * 0.62f }, radius * 0.55f, 200.0f, 340.0f, 20, Theme::TEXT_LIGHT); // Draw shoulders
+}
+
 #endif // End of UI_H include guard

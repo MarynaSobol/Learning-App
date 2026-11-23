@@ -1,5 +1,6 @@
-Alice_Coder|123|450|5
-Bob_CPlusPlus|123|320|3
-Charlie_Dev|123|180|2
-Mariia Vanaga|123|15|0
-Maryna Sobol|123|30|0
+Alice_Coder|123|450|5|1|5|2026-11-21|Pointers & Syntax
+Bob_CPlusPlus|123|320|3|1|5|2026-11-21|Pointers & Syntax
+Charlie_Dev|123|180|2|1|5|2026-11-21|Pointers & Syntax
+Mariia Vanaga|123|15|0|1|5|2026-11-21|Pointers & Syntax
+Maryna Sobol|123|65|0|2|5|2026-11-23|1. Classes, Objects & Structs
+Olivia|123|260|0|2|5|2026-11-23|1. Classes, Objects & Structs

@@ -438,8 +438,11 @@ int main() { // Define main application entry point
                         break; // Stop searching once matched
                     }
                 }
-                if (found) { // Check if login succeeded
-                    state.currentScreen = ScreenState::MAIN_MENU; // Navigate to the main dashboard
+                if (found) {
+                    state.showProfileView = false;
+                    state.showEditNameModal = false;
+                    state.showDeleteAccountModal = false;
+                    state.currentScreen = ScreenState::MAIN_MENU;
                 }
                 else { // Handle invalid login credentials
                     state.authErrorMsg = "Invalid username or password!"; // Set login failure message
@@ -501,7 +504,10 @@ int main() { // Define main application entry point
                         state.registeredUsers.push_back(newUser); // Add new user to the user list
                         state.currentUserIndex = (int)state.registeredUsers.size() - 1; // Set the newly created user as active
                         SaveUsers(state.registeredUsers); // Save the updated user list to disk
-                        state.currentScreen = ScreenState::MAIN_MENU; // Navigate to the main dashboard
+                        state.showProfileView = false;
+                        state.showEditNameModal = false;
+                        state.showDeleteAccountModal = false;
+                        state.currentScreen = ScreenState::MAIN_MENU;
                     }
                 }
             }
@@ -572,105 +578,321 @@ int main() { // Define main application entry point
                 state.currentScreen = ScreenState::EXAM_TOPICS; // Open the Exam topic selection screen
             }
 
-            if (DrawButton({ 20, screenHeight - 70.0f, navW, 46 }, "Log Out", Theme::ERROR_COL, 18)) { // Draw Log Out button at bottom of sidebar
-                state.currentUserIndex = -1; // Clear the active user index
-                state.authErrorMsg = ""; // Clear any displayed messages
-                state.currentScreen = ScreenState::AUTH_MENU; // Return to the authentication menu
+            const char* profileBtnLabel = state.showProfileView ? "Leaderboard" : "Profile";
+            Color profileBtnCol = state.showProfileView ? Theme::SUCCESS_COL : Theme::BTN_SECONDARY;
+            if (DrawButton({ 20, screenHeight - 126.0f, navW, 46 }, profileBtnLabel, profileBtnCol, 19)) {
+                state.showProfileView = !state.showProfileView;
+                state.profileDetailsScrollY = 0.0f;
             }
 
-            float contentX = sidebarW + 30.0f; // Set starting X coordinate for the right-side dashboard area
-            float contentW = screenWidth - sidebarW - 60.0f; // Calculate available width for the main dashboard area
-            float cardGap = 20.0f; // Set horizontal gap between top summary cards
-            float cardW = (contentW - cardGap * 2) / 3.0f; // Divide width evenly among three summary cards
-            float cardH = 105.0f; // Set height for each summary card
-            float cardY = 25.0f; // Set top Y position for summary cards
-
-            int streakVal = currUser ? currUser->streak : 1; // Read active user's streak or default to 1
-            int livesVal = currUser ? currUser->lives : 5; // Read active user's lives or default to 5
-            std::string weakVal = currUser ? currUser->weakTopic : "Pointers & Syntax"; // Read active user's weak topic or default
-
-            Rectangle streakCard = { contentX, cardY, cardW, cardH }; // Define bounds for the Daily Streak card
-            DrawRectangleRounded(streakCard, 0.16f, 8, Theme::PANEL_BG); // Draw Daily Streak card background
-            DrawRectangleRoundedLines(streakCard, 0.16f, 8, Theme::WARNING_COL); // Draw Daily Streak card border
-            DrawFlameIcon(streakCard.x + 36, streakCard.y + 52, 1.35f, streakVal > 0); // Render flame icon inside the streak card
-            DrawCustomText("DAILY STREAK", (int)streakCard.x + 68, (int)streakCard.y + 20, 14, Theme::TEXT_MUTED); // Draw streak card title
-            DrawCustomText(TextFormat("%d %s", streakVal, (streakVal == 1 ? "Day" : "Days")), // Format streak number with singular or plural label
-                (int)streakCard.x + 68, (int)streakCard.y + 44, 28, Theme::WARNING_COL); // Draw formatted streak count
-            DrawCustomText("Keep learning daily!", (int)streakCard.x + 68, (int)streakCard.y + 78, 13, Theme::TEXT_MUTED); // Draw motivational caption
-
-            Rectangle focusCard = { contentX + cardW + cardGap, cardY, cardW, cardH }; // Define bounds for the Needs Practice card
-            DrawRectangleRounded(focusCard, 0.16f, 8, Theme::PANEL_BG); // Draw Needs Practice card background
-            DrawRectangleRoundedLines(focusCard, 0.16f, 8, Theme::BTN_PRIMARY); // Draw Needs Practice card border
-            DrawCustomText("NEEDS PRACTICE", (int)focusCard.x + 20, (int)focusCard.y + 20, 14, Theme::TEXT_MUTED); // Draw Needs Practice card title
-            DrawTextFitWidth(weakVal.c_str(), (int)focusCard.x + 20, (int)focusCard.y + 46, 17, cardW - 36.0f, Theme::TEXT_LIGHT); // Draw weak topic text scaled to fit card width
-            DrawCustomText("Focus on this topic next", (int)focusCard.x + 20, (int)focusCard.y + 78, 13, Theme::BTN_HOVER); // Draw practice hint caption
-
-            Rectangle livesCard = { contentX + (cardW + cardGap) * 2, cardY, cardW, cardH }; // Define bounds for the Daily Lives card
-            DrawRectangleRounded(livesCard, 0.16f, 8, Theme::PANEL_BG); // Draw Daily Lives card background
-            DrawRectangleRoundedLines(livesCard, 0.16f, 8, (livesVal > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED); // Draw border colored by remaining lives
-            DrawCustomText(TextFormat("DAILY LIVES (%d/5)", livesVal), (int)livesCard.x + 20, (int)livesCard.y + 20, 14, Theme::TEXT_MUTED); // Draw Daily Lives card title with count
-            for (int h = 0; h < 5; ++h) { // Loop to render five heart icons
-                DrawHeartIcon(livesCard.x + 34 + h * 34, livesCard.y + 58, 1.2f, h < livesVal); // Draw filled or empty heart based on remaining lives
-            }
-            DrawCustomText("0 score in Quiz = -1 Life", (int)livesCard.x + 20, (int)livesCard.y + 80, 13, Theme::TEXT_MUTED); // Explain how lives are lost
-
-            if (!state.authErrorMsg.empty()) { // Check if a dashboard warning message is active
-                DrawCustomText(state.authErrorMsg.c_str(), (int)contentX, 142, 17, Theme::ERROR_COL); // Display warning text below the cards
+            if (DrawButton({ 20, screenHeight - 70.0f, navW, 46 }, "Log Out", Theme::ERROR_COL, 18)) {
+                state.currentUserIndex = -1;
+                state.authErrorMsg = "";
+                state.showProfileView = false;
+                state.showEditNameModal = false;
+                state.showDeleteAccountModal = false;
+                state.currentScreen = ScreenState::AUTH_MENU;
             }
 
-            Rectangle lbPanel = { contentX, 168.0f, contentW, screenHeight - 195.0f }; // Define bounds for the leaderboard panel
-            DrawRectangleRounded(lbPanel, 0.04f, 8, Theme::SIDEBAR_BG); // Draw leaderboard panel background
-            DrawRectangleRoundedLines(lbPanel, 0.04f, 8, Theme::BTN_SECONDARY); // Draw leaderboard panel border
+            float contentX = sidebarW + 30.0f;
+            float contentW = screenWidth - sidebarW - 60.0f;
+            bool modalOpen = state.showEditNameModal || state.showDeleteAccountModal;
 
-            DrawCustomText("DIAMOND LEAGUE LEADERBOARD", (int)lbPanel.x + 28, (int)lbPanel.y + 22, 28, Theme::WARNING_COL); // Draw leaderboard title
-            DrawCustomText("Compete with fellow programmers. Earn XP in Theory, Quiz, Constructor & Visualizer!", // Draw leaderboard description text
-                (int)lbPanel.x + 28, (int)lbPanel.y + 56, 16, Theme::TEXT_MUTED); // Position leaderboard subtitle
+            if (!state.showProfileView) {
+                // --- EXISTING DASHBOARD (Top 3 Cards + Leaderboard) ---
+                float cardGap = 20.0f;
+                float cardW = (contentW - cardGap * 2) / 3.0f;
+                float cardH = 105.0f;
+                float cardY = 25.0f;
 
-            std::vector<User> sortedUsers = state.registeredUsers; // Copy registered users to sort without altering original indices
-            std::sort(sortedUsers.begin(), sortedUsers.end(), [](const User& a, const User& b) { // Sort users in descending order by XP
-                return a.xp > b.xp; // Place higher XP user ahead of lower XP user
-                });
+                int streakVal = currUser ? currUser->streak : 1;
+                int livesVal = currUser ? currUser->lives : 5;
+                std::string weakVal = currUser ? currUser->weakTopic : "Pointers & Syntax";
 
-            float rowStartY = lbPanel.y + 98.0f; // Set starting Y coordinate for the first leaderboard row
-            int maxRows = std::min((int)sortedUsers.size(), 7); // Display up to 7 top users
-            for (int i = 0; i < maxRows; ++i) { // Iterate through the top ranked users
-                Rectangle rowRect = { lbPanel.x + 28.0f, rowStartY + i * 68.0f, lbPanel.width - 56.0f, 56.0f }; // Define bounds for the current leaderboard row
+                Rectangle streakCard = { contentX, cardY, cardW, cardH };
+                DrawRectangleRounded(streakCard, 0.16f, 8, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(streakCard, 0.16f, 8, Theme::WARNING_COL);
+                DrawFlameIcon(streakCard.x + 36, streakCard.y + 52, 1.35f, streakVal > 0);
+                DrawCustomText("DAILY STREAK", (int)streakCard.x + 68, (int)streakCard.y + 20, 14, Theme::TEXT_MUTED);
+                DrawCustomText(TextFormat("%d %s", streakVal, (streakVal == 1 ? "Day" : "Days")),
+                    (int)streakCard.x + 68, (int)streakCard.y + 44, 28, Theme::WARNING_COL);
+                DrawCustomText("Keep learning daily!", (int)streakCard.x + 68, (int)streakCard.y + 78, 13, Theme::TEXT_MUTED);
 
-                bool isCurrentUser = (currUser && sortedUsers[i].username == currUser->username); // Check if this row represents the logged-in user
-                Color rowCol = isCurrentUser ? Color{ 40, 90, 70, 255 } : Theme::PANEL_BG; // Highlight active user's row in green tint
-                Color borderCol = isCurrentUser ? Theme::SUCCESS_COL : Theme::BTN_PRIMARY; // Choose row outline color
+                Rectangle focusCard = { contentX + cardW + cardGap, cardY, cardW, cardH };
+                DrawRectangleRounded(focusCard, 0.16f, 8, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(focusCard, 0.16f, 8, Theme::BTN_PRIMARY);
+                DrawCustomText("NEEDS PRACTICE", (int)focusCard.x + 20, (int)focusCard.y + 20, 14, Theme::TEXT_MUTED);
+                DrawTextFitWidth(weakVal.c_str(), (int)focusCard.x + 20, (int)focusCard.y + 46, 17, cardW - 36.0f, Theme::TEXT_LIGHT);
+                DrawCustomText("Focus on this topic next", (int)focusCard.x + 20, (int)focusCard.y + 78, 13, Theme::BTN_HOVER);
 
-                DrawRectangleRounded(rowRect, 0.2f, 6, rowCol); // Draw row background rectangle
-                DrawRectangleRoundedLines(rowRect, 0.2f, 6, borderCol); // Draw row border
+                Rectangle livesCard = { contentX + (cardW + cardGap) * 2, cardY, cardW, cardH };
+                DrawRectangleRounded(livesCard, 0.16f, 8, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(livesCard, 0.16f, 8, (livesVal > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED);
+                DrawCustomText(TextFormat("DAILY LIVES (%d/5)", livesVal), (int)livesCard.x + 20, (int)livesCard.y + 20, 14, Theme::TEXT_MUTED);
+                for (int h = 0; h < 5; ++h) {
+                    DrawHeartIcon(livesCard.x + 34 + h * 34, livesCard.y + 58, 1.2f, h < livesVal);
+                }
+                DrawCustomText("0 score in Quiz = -1 Life", (int)livesCard.x + 20, (int)livesCard.y + 80, 13, Theme::TEXT_MUTED);
 
-                std::string rankStr = TextFormat("#%d", i + 1); // Format 1-based rank label
-                Color rankCol = Theme::TEXT_LIGHT; // Set default rank text color
-                if (i == 0) rankCol = { 255, 215, 0, 255 }; // Use gold color for rank 1
-                else if (i == 1) rankCol = { 192, 192, 192, 255 }; // Use silver color for rank 2
-                else if (i == 2) rankCol = { 205, 127, 50, 255 }; // Use bronze color for rank 3
+                if (!state.authErrorMsg.empty()) {
+                    DrawCustomText(state.authErrorMsg.c_str(), (int)contentX, 142, 17, Theme::ERROR_COL);
+                }
 
-                DrawCustomText(rankStr.c_str(), (int)rowRect.x + 22, (int)rowRect.y + 16, 22, rankCol); // Draw rank label
-                DrawCustomText(sortedUsers[i].username.c_str(), (int)rowRect.x + 85, (int)rowRect.y + 17, 20, Theme::TEXT_LIGHT); // Draw user's name
+                Rectangle lbPanel = { contentX, 168.0f, contentW, screenHeight - 195.0f };
+                DrawRectangleRounded(lbPanel, 0.04f, 8, Theme::SIDEBAR_BG);
+                DrawRectangleRoundedLines(lbPanel, 0.04f, 8, Theme::BTN_SECONDARY);
 
-                std::string streakBadge = TextFormat("%dd streak", sortedUsers[i].streak); // Format user's daily streak badge
-                DrawCustomText(streakBadge.c_str(), (int)(rowRect.x + rowRect.width - 230), (int)rowRect.y + 19, 16, Theme::TEXT_MUTED); // Draw streak badge
+                DrawCustomText("DIAMOND LEAGUE LEADERBOARD", (int)lbPanel.x + 28, (int)lbPanel.y + 22, 28, Theme::WARNING_COL);
+                DrawCustomText("Compete with fellow programmers. Earn XP in Theory, Quiz, Constructor & Visualizer!",
+                    (int)lbPanel.x + 28, (int)lbPanel.y + 56, 16, Theme::TEXT_MUTED);
 
-                std::string xpStr = TextFormat("%d XP", sortedUsers[i].xp); // Format user's XP string
-                int xpWidth = (int)MeasureCustomText(xpStr.c_str(), 20); // Measure XP text width for right alignment
-                DrawCustomText(xpStr.c_str(), (int)(rowRect.x + rowRect.width - xpWidth - 24), (int)rowRect.y + 17, 20, Theme::WARNING_COL); // Draw right-aligned XP text
+                std::vector<User> sortedUsers = state.registeredUsers;
+                std::sort(sortedUsers.begin(), sortedUsers.end(), [](const User& a, const User& b) {
+                    return a.xp > b.xp;
+                    });
+
+                float rowStartY = lbPanel.y + 98.0f;
+                int maxRows = std::min((int)sortedUsers.size(), 7);
+                for (int i = 0; i < maxRows; ++i) {
+                    Rectangle rowRect = { lbPanel.x + 28.0f, rowStartY + i * 68.0f, lbPanel.width - 56.0f, 56.0f };
+
+                    bool isCurrentUser = (currUser && sortedUsers[i].username == currUser->username);
+                    Color rowCol = isCurrentUser ? Color{ 40, 90, 70, 255 } : Theme::PANEL_BG;
+                    Color borderCol = isCurrentUser ? Theme::SUCCESS_COL : Theme::BTN_PRIMARY;
+
+                    DrawRectangleRounded(rowRect, 0.2f, 6, rowCol);
+                    DrawRectangleRoundedLines(rowRect, 0.2f, 6, borderCol);
+
+                    std::string rankStr = TextFormat("#%d", i + 1);
+                    Color rankCol = Theme::TEXT_LIGHT;
+                    if (i == 0) rankCol = { 255, 215, 0, 255 };
+                    else if (i == 1) rankCol = { 192, 192, 192, 255 };
+                    else if (i == 2) rankCol = { 205, 127, 50, 255 };
+
+                    DrawCustomText(rankStr.c_str(), (int)rowRect.x + 22, (int)rowRect.y + 16, 22, rankCol);
+                    DrawCustomText(sortedUsers[i].username.c_str(), (int)rowRect.x + 85, (int)rowRect.y + 17, 20, Theme::TEXT_LIGHT);
+
+                    std::string streakBadge = TextFormat("%dd streak", sortedUsers[i].streak);
+                    DrawCustomText(streakBadge.c_str(), (int)(rowRect.x + rowRect.width - 230), (int)rowRect.y + 19, 16, Theme::TEXT_MUTED);
+
+                    std::string xpStr = TextFormat("%d XP", sortedUsers[i].xp);
+                    int xpWidth = (int)MeasureCustomText(xpStr.c_str(), 20);
+                    DrawCustomText(xpStr.c_str(), (int)(rowRect.x + rowRect.width - xpWidth - 24), (int)rowRect.y + 17, 20, Theme::WARNING_COL);
+                }
+            }
+            else if (currUser) {
+                // =========================================================================
+                // PROFILE VIEW
+                // =========================================================================
+
+                // 1. Account Profile Header Block
+                Rectangle profileCard = { contentX, 25.0f, contentW, 130.0f };
+                DrawRectangleRounded(profileCard, 0.08f, 8, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(profileCard, 0.08f, 8, Theme::BTN_PRIMARY);
+
+                DrawAvatarIcon(profileCard.x + 65.0f, profileCard.y + 65.0f, 38.0f);
+
+                DrawCustomText("ACCOUNT PROFILE", (int)profileCard.x + 128, (int)profileCard.y + 24, 14, Theme::TEXT_MUTED);
+                DrawTextFitWidth(currUser->username.c_str(), (int)profileCard.x + 128, (int)profileCard.y + 48, 30, contentW - 310.0f, Theme::TEXT_LIGHT);
+                DrawCustomText(TextFormat("Member since / Last active: %s", currUser->lastActiveDate.c_str()),
+                    (int)profileCard.x + 128, (int)profileCard.y + 88, 15, Theme::TEXT_MUTED);
+
+                Rectangle editBtnRect = { profileCard.x + profileCard.width - 150.0f, profileCard.y + 42.0f, 125.0f, 46.0f };
+                if (DrawButton(editBtnRect, "Edit", Theme::BTN_PRIMARY, 20) && !modalOpen) {
+                    strncpy_s(state.editNameBuffer, sizeof(state.editNameBuffer), currUser->username.c_str(), _TRUNCATE);
+                    state.editNameBuffer[sizeof(state.editNameBuffer) - 1] = '\0';
+                    state.profileErrorMsg = "";
+                    state.showEditNameModal = true;
+                }
+
+                // 2. Delete Account Button directly underneath Account Profile block
+                Rectangle deleteBtnRect = { contentX, 170.0f, 220.0f, 44.0f };
+                if (DrawButton(deleteBtnRect, "Delete Account", Theme::ERROR_COL, 18) && !modalOpen) {
+                    state.showDeleteAccountModal = true;
+                }
+
+                // 3. Profile Details Section
+                Rectangle detailsPanel = { contentX, 230.0f, contentW, screenHeight - 255.0f };
+                DrawRectangleRounded(detailsPanel, 0.04f, 8, Theme::SIDEBAR_BG);
+                DrawRectangleRoundedLines(detailsPanel, 0.04f, 8, Theme::BTN_SECONDARY);
+
+                DrawCustomText("PROFILE DETAILS", (int)detailsPanel.x + 28, (int)detailsPanel.y + 20, 24, Theme::TEXT_LIGHT);
+                DrawLine((int)detailsPanel.x + 28, (int)detailsPanel.y + 54, (int)(detailsPanel.x + detailsPanel.width - 28), (int)detailsPanel.y + 54, Theme::BTN_SECONDARY);
+
+                // Row A: Daily Streak (Flame)
+                Rectangle streakRow = { detailsPanel.x + 28.0f, detailsPanel.y + 68.0f, detailsPanel.width - 56.0f, 64.0f };
+                DrawRectangleRounded(streakRow, 0.14f, 6, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(streakRow, 0.14f, 6, Theme::WARNING_COL);
+                DrawFlameIcon(streakRow.x + 34.0f, streakRow.y + 32.0f, 1.2f, currUser->streak > 0);
+                DrawCustomText("Daily Learning Streak:", (int)streakRow.x + 68, (int)streakRow.y + 21, 19, Theme::TEXT_MUTED);
+                DrawCustomText(TextFormat("%d %s", currUser->streak, (currUser->streak == 1 ? "Day" : "Days")),
+                    (int)streakRow.x + 290, (int)streakRow.y + 18, 24, Theme::WARNING_COL);
+
+                // Row B: Daily Lives (underneath Flame)
+                Rectangle livesRow = { detailsPanel.x + 28.0f, detailsPanel.y + 144.0f, detailsPanel.width - 56.0f, 64.0f };
+                DrawRectangleRounded(livesRow, 0.14f, 6, Theme::PANEL_BG);
+                DrawRectangleRoundedLines(livesRow, 0.14f, 6, (currUser->lives > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED);
+                DrawCustomText(TextFormat("Daily Lives (%d/5):", currUser->lives), (int)livesRow.x + 24, (int)livesRow.y + 21, 19, Theme::TEXT_MUTED);
+                for (int h = 0; h < 5; ++h) {
+                    DrawHeartIcon(livesRow.x + 235.0f + h * 34.0f, livesRow.y + 32.0f, 1.15f, h < currUser->lives);
+                }
+
+                // Row C: Detailed Learning Progress (compact scrollable viewport)
+                DrawCustomText("LEARNING PROGRESS OVERVIEW (Scroll to view all)", (int)detailsPanel.x + 28, (int)detailsPanel.y + 224, 15, Theme::TEXT_MUTED);
+                Rectangle progressBox = { detailsPanel.x + 28.0f, detailsPanel.y + 248.0f, detailsPanel.width - 56.0f, detailsPanel.height - 270.0f };
+                DrawRectangleRounded(progressBox, 0.05f, 8, Theme::BG_DARK);
+                DrawRectangleRoundedLines(progressBox, 0.05f, 8, Theme::BTN_SECONDARY);
+
+                // Calculate user's current leaderboard rank
+                std::vector<User> ranked = state.registeredUsers;
+                std::sort(ranked.begin(), ranked.end(), [](const User& a, const User& b) { return a.xp > b.xp; });
+                int userRank = 1;
+                for (size_t r = 0; r < ranked.size(); ++r) {
+                    if (ranked[r].username == currUser->username) {
+                        userRank = (int)r + 1;
+                        break;
+                    }
+                }
+
+                int xpLevel = (currUser->xp / 100) + 1;
+                int xpToNext = 100 - (currUser->xp % 100);
+                const char* langLabel = (state.language == TargetLang::LANG_C) ? "C Programming" : "C++ Programming";
+
+                std::string progressText =
+                    std::string("Current Level: Level ") + std::to_string(xpLevel) + " (" + std::to_string(xpToNext) + " XP to next level)\n\n" +
+                    "Total Experience Earned: " + std::to_string(currUser->xp) + " XP\n\n" +
+                    "Diamond League Rank: #" + std::to_string(userRank) + " of " + std::to_string(state.registeredUsers.size()) + " learners\n\n" +
+                    "Completed Labs & Practice Tasks: " + std::to_string(currUser->levelsCompleted) + "\n\n" +
+                    "Active Curriculum: " + langLabel + "\n\n" +
+                    "Recommended Focus Topic: " + currUser->weakTopic + "\n\n" +
+                    "Available Topics in Active Curriculum:\n" +
+                    "  - Theory Topics: " + std::to_string(db.theoryTopics.size()) + "\n" +
+                    "  - Quiz Topics: " + std::to_string(db.quizTopics.size()) + "\n" +
+                    "  - Constructor Topics: " + std::to_string(db.constructorTopics.size()) + "\n" +
+                    "  - Visualizer Topics: " + std::to_string(db.visualizerTopics.size()) + "\n" +
+                    "  - Practice Topics: " + std::to_string(db.practiceTopics.size()) + "\n" +
+                    "  - Exam Topics: " + std::to_string(db.examTopics.size()) + "\n\n" +
+                    "Last Active Date: " + currUser->lastActiveDate + "\n\n" +
+                    "Tip: Complete Practice tasks (+40 XP), Constructor labs (+50 XP), and Exam Mode (+20 XP per question) to climb the leaderboard!";
+
+                float progContentH = MeasureTextWrappedHeight(progressText, progressBox.width - 42.0f, 17) + 24.0f;
+                float maxProgScroll = std::max(0.0f, progContentH - progressBox.height);
+
+                if (!modalOpen && CheckCollisionPointRec(mouse, progressBox)) {
+                    float wheel = GetMouseWheelMove();
+                    if (wheel != 0.0f) state.profileDetailsScrollY -= wheel * 35.0f;
+                }
+                if (!modalOpen) {
+                    if (IsKeyDown(KEY_DOWN)) state.profileDetailsScrollY += 220.0f * dt;
+                    if (IsKeyDown(KEY_UP)) state.profileDetailsScrollY -= 220.0f * dt;
+                }
+                state.profileDetailsScrollY = std::clamp(state.profileDetailsScrollY, 0.0f, maxProgScroll);
+
+                BeginScissorMode((int)progressBox.x + 6, (int)progressBox.y + 6, (int)progressBox.width - 12, (int)progressBox.height - 12);
+                DrawTextWrapped(progressText,
+                    { progressBox.x + 18.0f, progressBox.y + 14.0f - state.profileDetailsScrollY, progressBox.width - 42.0f, progContentH },
+                    17, Theme::TEXT_LIGHT);
+                EndScissorMode();
+
+                if (maxProgScroll > 0.0f) {
+                    float barH = std::max(36.0f, progressBox.height * (progressBox.height / progContentH));
+                    float barY = progressBox.y + (state.profileDetailsScrollY / maxProgScroll) * (progressBox.height - barH);
+                    DrawRectangleRounded({ progressBox.x + progressBox.width - 12.0f, barY, 6.0f, barH }, 0.5f, 4, Theme::TEXT_MUTED);
+                }
+
+                // =========================================================================
+                // MODAL 1: EDIT USERNAME
+                // =========================================================================
+                if (state.showEditNameModal) {
+                    DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 });
+                    Rectangle modal = { 340.0f, 230.0f, 520.0f, 300.0f };
+                    DrawRectangleRounded(modal, 0.07f, 10, Theme::PANEL_BG);
+                    DrawRectangleRoundedLines(modal, 0.07f, 10, Theme::BTN_PRIMARY);
+
+                    DrawCenteredText("EDIT USERNAME", 260, 28, Theme::TEXT_LIGHT);
+                    DrawCustomText("New Username:", 390, 314, 18, Theme::TEXT_MUTED);
+
+                    Rectangle nameInputBox = { 390.0f, 344.0f, 420.0f, 46.0f };
+                    DrawRectangleRounded(nameInputBox, 0.2f, 6, Theme::BG_DARK);
+                    DrawRectangleRoundedLines(nameInputBox, 0.2f, 6, Theme::SUCCESS_COL);
+                    UpdateTextInput(state.editNameBuffer, 32);
+
+                    std::string displayEdit = state.editNameBuffer;
+                    if ((int)(GetTime() * 2.0) % 2 == 0) displayEdit += "|";
+                    DrawCustomText(displayEdit.c_str(), 405, 356, 20, Theme::TEXT_LIGHT);
+
+                    if (!state.profileErrorMsg.empty()) {
+                        DrawCenteredText(state.profileErrorMsg.c_str(), 402, 16, Theme::ERROR_COL);
+                    }
+
+                    if (DrawButton({ 390.0f, 444.0f, 195.0f, 48.0f }, "Confirm", Theme::SUCCESS_COL, 20)) {
+                        std::string newName(state.editNameBuffer);
+                        if (newName.empty()) {
+                            state.profileErrorMsg = "Username cannot be empty!";
+                        }
+                        else {
+                            bool duplicate = false;
+                            for (size_t i = 0; i < state.registeredUsers.size(); ++i) {
+                                if ((int)i != state.currentUserIndex && state.registeredUsers[i].username == newName) {
+                                    duplicate = true;
+                                    break;
+                                }
+                            }
+                            if (duplicate) {
+                                state.profileErrorMsg = "Username is already taken!";
+                            }
+                            else {
+                                currUser->username = newName;
+                                SaveUsers(state.registeredUsers);
+                                state.showEditNameModal = false;
+                                state.profileErrorMsg = "";
+                            }
+                        }
+                    }
+                    if (DrawButton({ 615.0f, 444.0f, 195.0f, 48.0f }, "Cancel", Theme::BTN_SECONDARY, 20)) {
+                        state.showEditNameModal = false;
+                        state.profileErrorMsg = "";
+                    }
+                }
+
+                // =========================================================================
+                // MODAL 2: DELETE ACCOUNT CONFIRMATION
+                // =========================================================================
+                if (state.showDeleteAccountModal) {
+                    DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 });
+                    Rectangle modal = { 320.0f, 240.0f, 560.0f, 270.0f };
+                    DrawRectangleRounded(modal, 0.07f, 10, Theme::PANEL_BG);
+                    DrawRectangleRoundedLines(modal, 0.07f, 10, Theme::ERROR_COL);
+
+                    DrawCenteredText("DELETE ACCOUNT", 272, 28, Theme::ERROR_COL);
+                    DrawCenteredText("Are you sure you want to permanently delete", 326, 20, Theme::TEXT_LIGHT);
+                    DrawCenteredText("your account? All progress and XP will be lost.", 356, 18, Theme::TEXT_MUTED);
+
+                    if (DrawButton({ 370.0f, 426.0f, 210.0f, 50.0f }, "Yes, Delete", Theme::ERROR_COL, 20)) {
+                        state.registeredUsers.erase(state.registeredUsers.begin() + state.currentUserIndex);
+                        SaveUsers(state.registeredUsers);
+                        state.currentUserIndex = -1;
+                        state.showProfileView = false;
+                        state.showDeleteAccountModal = false;
+                        state.authErrorMsg = "";
+                        state.currentScreen = ScreenState::AUTH_MENU;
+                    }
+                    if (DrawButton({ 620.0f, 426.0f, 210.0f, 50.0f }, "Cancel", Theme::BTN_SECONDARY, 20)) {
+                        state.showDeleteAccountModal = false;
+                    }
+                }
             }
         }
-
         else { // Render compact top status bar for all inner learning screens
-            const char* activeLangText = (state.language == TargetLang::LANG_C) ? "Active Lang: C" : "Active Lang: C++"; // Prepare label for currently selected language
-            DrawRectangleRounded({ 20, 14, 195, 34 }, 0.3f, 6, Theme::PANEL_BG); // Draw language badge background
-            DrawCustomText(activeLangText, 35, 22, 17, Theme::WARNING_COL); // Draw active language text
+            const char* activeLangText = (state.language == TargetLang::LANG_C) ? "Active Lang: C" : "Active Lang: C++";
+            DrawRectangleRounded({ 20, 14, 195, 34 }, 0.3f, 6, Theme::PANEL_BG);
+            DrawCustomText(activeLangText, 35, 22, 17, Theme::WARNING_COL);
 
-            if (state.currentUserIndex >= 0 && state.currentUserIndex < (int)state.registeredUsers.size()) { // Verify a user is logged in
-                User& currUser = state.registeredUsers[state.currentUserIndex]; // Reference the active user
-                std::string userBadge = TextFormat("User: %s | %d XP | %d Lives", currUser.username.c_str(), currUser.xp, currUser.lives); // Format user status summary
-                DrawRectangleRounded({ 228, 14, 345, 34 }, 0.3f, 6, Theme::PANEL_BG); // Draw user badge background
-                DrawTextFitWidth(userBadge.c_str(), 242, 22, 16, 318.0f, Theme::SUCCESS_COL); // Draw user status text scaled to fit
+            if (state.currentUserIndex >= 0 && state.currentUserIndex < (int)state.registeredUsers.size()) {
+                User& currUser = state.registeredUsers[state.currentUserIndex];
+                std::string userBadge = TextFormat("User: %s | %d XP | %d Lives", currUser.username.c_str(), currUser.xp, currUser.lives);
+                DrawRectangleRounded({ 228, 14, 345, 34 }, 0.3f, 6, Theme::PANEL_BG);
+                DrawTextFitWidth(userBadge.c_str(), 242, 22, 16, 318.0f, Theme::SUCCESS_COL);
             }
         }
 
