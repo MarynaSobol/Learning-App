@@ -2,7 +2,8 @@
 
 An interactive desktop learning application built with **Raylib** that teaches **C** and **C++** from fundamentals to advanced topics through flashcards, quizzes, drag-and-drop code construction, and step-by-step code walkthroughs.
 
-![Dashboard Preview](<img width="602" height="424" alt="image" src="https://github.com/user-attachments/assets/156380b2-f569-4a2b-a540-2a03d65f2d88" />)
+![Dashboard Preview](<img width="602" height="424" alt="Dashboard" src="https://github.com/user-attachments/assets/c80205fb-d4e4-42ac-8b20-456c209323dd" />
+)
 
 ---
 
