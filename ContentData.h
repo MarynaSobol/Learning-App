@@ -3,12 +3,15 @@
 #define CONTENT_DATA_H // Define the header guard macro
 
 #include "AppTypes.h" // Include application data structure definitions
+#include "PracticeExamData.h"
 
 struct LanguageDatabase { // Structure holding all learning contents for a specific programming language
     std::vector<TheoryTopic> theoryTopics; // List of theory topics and flashcards
     std::vector<QuizTopic> quizTopics; // List of quiz topics and questions
     std::vector<ConstructorTopic> constructorTopics; // List of code constructor topics and levels
     std::vector<VisualizerTopic> visualizerTopics; // List of code visualizer topics and walkthroughs
+    std::vector<PracticeTopic> practiceTopics; // Added for Practice Mode
+    std::vector<ExamTopic> examTopics;         // Added for Exam Mode
 };
 
 inline LanguageDatabase GetDatabase(TargetLang lang) { // Builds and returns the curriculum database for the selected language
@@ -1528,7 +1531,7 @@ inline LanguageDatabase GetDatabase(TargetLang lang) { // Builds and returns the
             }}
         };
     }
-
+    PopulatePracticeAndExam(lang, db.practiceTopics, db.examTopics);
     return db; // Return the populated curriculum database
 }
 

@@ -1,149 +1,210 @@
-// Purpose: Defines core data structures, enumerations, and global application state for the C/C++ Learning Studio.
-#ifndef APP_TYPES_H // Prevent multiple inclusions of this header file
-#define APP_TYPES_H // Define the header guard macro
+// Purpose of AppTypes.h: Defines core enumerations, data structures for users and all learning modes (Theory, Quiz, Constructor, Visualizer, Practice, and Exam), and the central AppState struct holding runtime state for the C / C++ Learning Studio.
 
-#include "raylib.h" // Include Raylib graphics and input library definitions
-#include <string> // Include standard string class support
-#include <vector> // Include standard dynamic array container support
+#ifndef APP_TYPES_H // Guard against multiple inclusions of this header file
+#define APP_TYPES_H // Define the APP_TYPES_H include guard macro
 
-enum class TargetLang { // Enumeration representing selectable target programming languages
-    LANG_C, // Identifier for the C programming language
-    LANG_CPP // Identifier for the C++ programming language
+#include "raylib.h" // Include Raylib types such as Rectangle and Vector2
+#include <string> // Include std::string for text fields
+#include <vector> // Include std::vector for dynamic collections
+
+enum class TargetLang { // Enumerate the supported target programming languages
+    LANG_C, // Select the C programming language curriculum
+    LANG_CPP // Select the C++ programming language curriculum
 };
 
-enum class ScreenState { // Enumeration representing all navigable UI screens
-    AUTH_MENU, // Initial authentication landing screen
-    LOGIN, // User login screen
-    REGISTER, // New account registration screen
-    MAIN_MENU, // Main dashboard screen with sidebar and leaderboard
-    LEADERBOARD, // Leaderboard view state
-    SETTINGS, // Application settings view state
-    THEORY_TOPICS, // Topic selection screen for Theory mode
-    THEORY_CARDS, // Flashcard lesson viewer screen for Theory mode
-    QUIZ_TOPICS, // Topic selection screen for Quiz mode
-    QUIZ, // Interactive multiple-choice quiz screen
-    CONSTRUCTOR_TOPICS, // Topic selection screen for Code Constructor mode
-    CONSTRUCTOR_LEVELS, // Lab level selection screen for Code Constructor mode
-    CONSTRUCTOR_GAME, // Drag-and-drop Code Constructor gameplay screen
-    VISUALIZER_TOPICS, // Topic selection screen for Code Visualizer mode
-    VISUALIZER_LEVELS, // Lab level selection screen for Code Visualizer mode
-    VISUALIZER_VIEW // Step-by-step code walkthrough screen for Visualizer mode
+enum class ScreenState { // Enumerate all navigable screens in the application
+    AUTH_MENU, // Initial landing screen with Login and Register options
+    LOGIN, // Existing user sign-in screen
+    REGISTER, // New account creation screen
+    MAIN_MENU, // Primary dashboard with sidebar, stats cards, and leaderboard
+    LEADERBOARD, // Dedicated leaderboard view
+    SETTINGS, // Application settings screen
+    THEORY_TOPICS, // Topic selection screen for Theory lessons
+    THEORY_CARDS, // Flashcard lesson viewer for a selected Theory topic
+    QUIZ_TOPICS, // Topic selection screen for Quizzes
+    QUIZ, // Active multiple-choice quiz gameplay screen
+    CONSTRUCTOR_TOPICS, // Topic selection screen for Code Constructor
+    CONSTRUCTOR_LEVELS, // Level selection screen within a Constructor topic
+    CONSTRUCTOR_GAME, // Interactive drag-and-drop Code Constructor puzzle screen
+    VISUALIZER_TOPICS, // Topic selection screen for Code Visualizer
+    VISUALIZER_LEVELS, // Level selection screen within a Visualizer topic
+    VISUALIZER_VIEW, // Step-by-step code walkthrough viewer
+    PRACTICE_TOPICS, // Topic selection screen for Practice coding mode
+    PRACTICE_TASKS, // Task selection screen within a Practice topic
+    PRACTICE_EDITOR, // Interactive code editor screen for solving a Practice task
+    EXAM_TOPICS, // Topic selection screen for Exam mode
+    EXAM_QUESTION, // Active exam question screen
+    EXAM_RESULT, // Exam score summary screen
+    EXAM_REVIEW // Detailed answer review screen after completing an exam
 };
 
-struct User { // Data structure storing profile details and progress for a user
-    std::string username; // Account username for login and display
+struct User { // Store persistent profile and progress data for a registered user
+    std::string username; // Unique login name of the user
     std::string password; // Account password for authentication
-    int xp = 0; // Total experience points earned by the user
-    int levelsCompleted = 0; // Total number of lab levels completed
-    int streak = 1; // Number of consecutive days the user has been active
-    int lives = 5; // Remaining daily quiz lives with a maximum of five per day
-    std::string lastActiveDate = ""; // Last active date formatted as YYYY-MM-DD
-    std::string weakTopic = "Pointers & Syntax"; // Topic recommended for additional practice
+    int xp = 0; // Total accumulated experience points
+    int levelsCompleted = 0; // Count of completed lab levels
+    int streak = 1; // Consecutive active learning days
+    int lives = 5; // Remaining daily lives for quiz attempts
+    std::string lastActiveDate = ""; // Date string of the user's most recent login
+    std::string weakTopic = "Pointers & Syntax"; // Recommended topic needing extra practice
 };
 
-struct Flashcard { // Data structure representing a single theory lesson card
-    std::string title; // Title heading of the flashcard
-    std::string content; // Detailed instructional text of the flashcard
+struct Flashcard { // Represent a single Theory lesson card
+    std::string title; // Heading displayed at the top of the flashcard
+    std::string content; // Body explanation text for the lesson
 };
 
-struct TheoryTopic { // Data structure grouping theory flashcards under a topic
-    std::string topicName; // Display name of the theory topic
-    std::vector<Flashcard> cards; // Collection of flashcards belonging to this topic
+struct TheoryTopic { // Group related Theory flashcards under one topic
+    std::string topicName; // Display name of the Theory topic
+    std::vector<Flashcard> cards; // Ordered list of flashcards in this topic
 };
 
-struct QuizQuestion { // Data structure representing a single four-option quiz question
-    std::string question; // Prompt text of the quiz question
-    std::string options[4]; // Array holding four possible answer choices
-    int correctIndex; // Zero-based index of the correct answer in options
+struct QuizQuestion { // Represent one multiple-choice quiz question
+    std::string question; // Question prompt text
+    std::string options[4]; // Array of four possible answer choices
+    int correctIndex; // Zero-based index of the correct choice in options
 };
 
-struct QuizTopic { // Data structure grouping quiz questions under a topic
-    std::string topicName; // Display name of the quiz topic
-    std::vector<QuizQuestion> questions; // List of questions in this quiz topic
+struct QuizTopic { // Group multiple quiz questions under one topic
+    std::string topicName; // Display name of the Quiz topic
+    std::vector<QuizQuestion> questions; // Collection of questions for this topic
 };
 
-struct ConstructorLevel { // Data structure defining a Code Constructor lab challenge
-    std::string levelTitle; // Title of the constructor lab level
-    std::vector<std::string> correctLines; // Ordered lines of code forming the valid solution
-    std::vector<std::string> slotExplanations; // Line-by-line explanations shown when an error occurs
-    std::vector<std::string> extraBlocks; // Distractor code blocks mixed into the draggable pool
+struct ConstructorLevel { // Define a single drag-and-drop Code Constructor challenge
+    std::string levelTitle; // Display title of the Constructor lab
+    std::vector<std::string> correctLines; // Expected code lines in exact slot order
+    std::vector<std::string> slotExplanations; // Explanations shown when each corresponding slot fails
+    std::vector<std::string> extraBlocks; // Distractor code blocks mixed into the block pool
 };
 
-struct ConstructorTopic { // Data structure grouping constructor labs under a topic
-    std::string topicName; // Display name of the constructor topic
-    std::vector<ConstructorLevel> levels; // List of constructor lab levels in this topic
+struct ConstructorTopic { // Group Code Constructor levels under one topic
+    std::string topicName; // Display name of the Constructor topic
+    std::vector<ConstructorLevel> levels; // List of Constructor labs belonging to this topic
 };
 
-struct DraggableBlock { // Data structure representing a movable code block in Constructor mode
-    std::string text; // Code text displayed inside the draggable block
-    Rectangle rect; // Current screen position and dimensions of the block
-    int currentSlot; // Index of the slot holding this block or -1 if in the pool
-    bool isDragging; // Flag indicating whether the user is currently dragging this block
-    Vector2 dragOffset; // Cursor offset from the top-left corner when dragging starts
+struct DraggableBlock { // Track runtime position and interaction state of a movable code block
+    std::string text; // Source code text shown on the block
+    Rectangle rect; // Current screen bounds of the block
+    int currentSlot; // Index of the slot holding this block or -1 if unslotted
+    bool isDragging; // Flag indicating whether the user is actively dragging this block
+    Vector2 dragOffset; // Offset between the mouse cursor and the block's top-left corner
 };
 
-struct CodeStep { // Data structure pairing one code line with its explanation
-    std::string codeLine; // Single line or snippet of code to display
-    std::string explanation; // Plain-English explanation of what this code line does
+struct CodeStep { // Pair a single line of code with its walkthrough explanation
+    std::string codeLine; // Individual line of source code displayed in the Visualizer
+    std::string explanation; // Plain-language explanation of what the line does
 };
 
-struct VisualizerLevel { // Data structure defining a step-by-step Visualizer walkthrough
-    std::string levelTitle; // Title of the visualizer lab walkthrough
+struct VisualizerLevel { // Define a single line-by-line Code Visualizer walkthrough
+    std::string levelTitle; // Display title of the Visualizer lab
     std::string fullCode; // Complete source code shown in the intro overview modal
-    std::vector<CodeStep> steps; // Sequential list of code steps and explanations
+    std::vector<CodeStep> steps; // Sequential breakdown of code lines and explanations
 };
 
-struct VisualizerTopic { // Data structure grouping visualizer labs under a topic
-    std::string topicName; // Display name of the visualizer topic
-    std::vector<VisualizerLevel> levels; // List of visualizer walkthrough levels in this topic
+struct VisualizerTopic { // Group Code Visualizer walkthroughs under one topic
+    std::string topicName; // Display name of the Visualizer topic
+    std::vector<VisualizerLevel> levels; // List of Visualizer levels in this topic
 };
 
-struct AppState { // Central structure tracking runtime UI and gameplay state
-    ScreenState currentScreen = ScreenState::AUTH_MENU; // Currently active application screen
-    TargetLang language = TargetLang::LANG_CPP; // Currently selected programming language
+struct PracticeRule { // Define a validation rule checked against user-written Practice code
+    std::string requiredToken; // Required code snippet matched while ignoring extra whitespace
+    std::string errorFeedback; // Diagnostic message shown when the required token is missing
+};
 
-    std::vector<User> registeredUsers = { // List of registered user accounts with default demo profiles
-        {"Alice_Coder", "123", 450, 5, 7, 5, "2026-11-18", "STL & Vectors"}, // Default demo user profile for Alice
-        {"Bob_CPlusPlus", "123", 320, 3, 4, 4, "2026-11-18", "Memory Management"}, // Default demo user profile for Bob
-        {"Charlie_Dev", "123", 180, 2, 2, 5, "2026-11-18", "Control Flow"} // Default demo user profile for Charlie
+struct PracticeTask { // Define a single hands-on coding task in Practice mode
+    std::string taskTitle; // Display title of the practice coding challenge
+    std::string description; // Instructions explaining what the user must implement
+    std::string expectedOutput; // Expected program output shown as a target reference
+    std::vector<PracticeRule> rules; // List of validation rules used to grade submitted code
+};
+
+struct PracticeTopic { // Group Practice coding tasks under one topic
+    std::string topicName; // Display name of the Practice topic
+    std::vector<PracticeTask> tasks; // List of coding tasks belonging to this topic
+};
+
+enum class ExamQuestionType { // Identify the interaction format of an exam question
+    MULTIPLE_CHOICE, // Question answered by selecting one of four options
+    TEXT_INPUT // Question answered by typing a text response
+};
+
+struct ExamQuestion { // Represent a single question inside Exam mode
+    ExamQuestionType type; // Format of the exam question
+    std::string question; // Question prompt displayed to the user
+    std::vector<std::string> options; // Four answer choices used when type is MULTIPLE_CHOICE
+    int correctOptionIndex = 0; // Zero-based index of the correct option for MULTIPLE_CHOICE
+    std::vector<std::string> acceptedAnswers; // List of valid accepted strings for TEXT_INPUT
+    std::string correctAnswerDisplay; // Formatted canonical answer shown during exam review
+};
+
+struct ExamTopic { // Group exam questions under one subject topic
+    std::string topicName; // Display name of the Exam topic
+    std::vector<ExamQuestion> questions; // Ordered list of questions in this exam
+};
+
+struct AppState { // Hold all active runtime state across every screen and mode
+    ScreenState currentScreen = ScreenState::AUTH_MENU; // Currently active screen being rendered
+    TargetLang language = TargetLang::LANG_CPP; // Currently selected programming language curriculum
+
+    std::vector<User> registeredUsers = { // In-memory list of user accounts initialized with default profiles
+        {"Alice_Coder", "123", 450, 5, 7, 5, "2026-11-18", "STL & Vectors"}, // Default sample user Alice_Coder
+        {"Bob_CPlusPlus", "123", 320, 3, 4, 4, "2026-11-18", "Memory Management"}, // Default sample user Bob_CPlusPlus
+        {"Charlie_Dev", "123", 180, 2, 2, 5, "2026-11-18", "Control Flow"} // Default sample user Charlie_Dev
     };
-    int currentUserIndex = -1; // Index of the logged-in user or -1 if logged out
+    int currentUserIndex = -1; // Index of the signed-in user in registeredUsers or -1 when logged out
 
-    char inputUsername[32] = "\0"; // Input text buffer for username entry
-    char inputPassword[32] = "\0"; // Input text buffer for password entry
-    std::string authErrorMsg = ""; // Error or status message displayed on auth and menu screens
-    int activeInputBox = 0; // Tracks which text input box currently has focus
+    char inputUsername[32] = "\0"; // Text buffer for entering a username on Login or Register screens
+    char inputPassword[32] = "\0"; // Text buffer for entering a password on Login or Register screens
+    std::string authErrorMsg = ""; // Error or warning message shown on auth and dashboard screens
+    int activeInputBox = 0; // Focused input field selector (0 none, 1 username, 2 password)
 
-    int selectedTopic = 0; // Index of the currently selected theory topic
-    int currentCard = 0; // Index of the currently viewed flashcard
+    int selectedTopic = 0; // Index of the active Theory topic
+    int currentCard = 0; // Index of the currently viewed flashcard within the Theory topic
 
-    int selectedQuizTopic = 0; // Index of the currently selected quiz topic
-    int currentQuestion = 0; // Index of the active quiz question
-    int score = 0; // Number of correct answers in the current quiz session
-    bool quizFinished = false; // Flag indicating whether all quiz questions are answered
-    int selectedAnswer = -1; // Index of the answer chosen for the current question or -1
-    float feedbackTimer = 0.0f; // Countdown timer for displaying answer feedback
+    int selectedQuizTopic = 0; // Index of the active Quiz topic
+    int currentQuestion = 0; // Index of the current question in the active quiz
+    int score = 0; // Number of correctly answered questions in the current quiz attempt
+    bool quizFinished = false; // Flag indicating whether all quiz questions have been completed
+    int selectedAnswer = -1; // Index of the user's chosen quiz option or -1 if unanswered
+    float feedbackTimer = 0.0f; // Countdown timer in seconds before advancing to the next quiz question
 
-    int selectedConstructorTopic = 0; // Index of the currently selected constructor topic
-    int selectedConstructorLevel = 0; // Index of the currently selected constructor level
-    std::vector<DraggableBlock> blocks; // All draggable code blocks active in the current level
-    std::vector<int> slotBlockIndex; // Maps each target slot to the index of its placed block
-    bool isCarMoving = false; // Flag indicating whether the validation car is animating
-    float carX = 0.0f; // Current horizontal screen coordinate of the validation car
-    int carTargetLine = 0; // Number of code slots successfully validated by the car
-    bool carCrashed = false; // Flag indicating whether the car hit an incorrect slot
-    bool levelSuccess = false; // Flag indicating whether the level was completed cleanly
-    bool showErrorModal = false; // Flag controlling visibility of the error report modal
-    int firstErrorLine = -1; // Zero-based index of the first slot containing an error
-    float errorModalScrollY = 0.0f; // Vertical scroll offset inside the error report modal
+    int selectedConstructorTopic = 0; // Index of the active Code Constructor topic
+    int selectedConstructorLevel = 0; // Index of the active Code Constructor level
+    std::vector<DraggableBlock> blocks; // Active draggable code blocks for the current Constructor level
+    std::vector<int> slotBlockIndex; // Mapping from each slot index to its occupying block index or -1
+    bool isCarMoving = false; // Flag indicating whether the validation car animation is running
+    float carX = 0.0f; // Current horizontal pixel coordinate of the validation car
+    int carTargetLine = 0; // Count of consecutive code slots verified as correct by the car
+    bool carCrashed = false; // Flag indicating whether the car stopped due to an error
+    bool levelSuccess = false; // Flag indicating whether the user solved the Constructor level
+    bool showErrorModal = false; // Flag controlling visibility of the Constructor crash report modal
+    int firstErrorLine = -1; // Zero-based index of the first slot where the car crashed
+    float errorModalScrollY = 0.0f; // Vertical scroll offset inside the Constructor error report modal
 
-    int selectedVisualizerTopic = 0; // Index of the currently selected visualizer topic
-    int selectedVisualizerLevel = 0; // Index of the currently selected visualizer level
-    bool showIntroModal = true; // Flag controlling visibility of the full-code intro modal
-    int revealedLinesCount = 1; // Number of code lines currently revealed in Visualizer mode
-    std::vector<bool> explanationVisible; // Tracks whether each step's explanation box is expanded
-    std::vector<bool> stepUnderstood; // Tracks whether the user has confirmed understanding each step
-    float visualizerScrollY = 0.0f; // Vertical scroll offset inside the visualizer viewport
+    int selectedVisualizerTopic = 0; // Index of the active Code Visualizer topic
+    int selectedVisualizerLevel = 0; // Index of the active Code Visualizer level
+    bool showIntroModal = true; // Flag controlling visibility of the Visualizer full-code overview modal
+    int revealedLinesCount = 1; // Number of code lines currently revealed in the Visualizer
+    std::vector<bool> explanationVisible; // Per-step flags tracking whether each explanation box is expanded
+    std::vector<bool> stepUnderstood; // Per-step flags tracking whether the user confirmed understanding
+    float visualizerScrollY = 0.0f; // Vertical scroll offset inside the Visualizer walkthrough viewport
+
+    int selectedPracticeTopic = 0; // Index of the active Practice topic
+    int selectedPracticeTask = 0; // Index of the active Practice coding task
+    std::string practiceCodeBuffer = ""; // Multi-line source code typed by the user in the Practice editor
+    bool practiceChecked = false; // Flag indicating whether the user has submitted code for checking
+    bool practiceIsCorrect = false; // Flag indicating whether the checked Practice code passed all rules
+    std::string practiceFeedback = ""; // Diagnostic feedback generated after checking Practice code
+    float practiceEditorScrollY = 0.0f; // Vertical scroll offset for the Practice code editor area
+    float practiceFeedbackScrollY = 0.0f; // Vertical scroll offset for the Practice feedback panel
+    float backspaceHoldTimer = 0.0f; // Timer used to trigger smooth repeated deletion when holding Backspace
+
+    int selectedExamTopic = 0; // Index of the active Exam topic
+    int currentExamQuestion = 0; // Index of the currently displayed question in the Exam
+    std::vector<int> examUserChoice; // Recorded multiple-choice option indices for each exam question
+    std::vector<std::string> examUserText; // Recorded text input responses for each exam question
+    int examScore = 0; // Total number of correct answers achieved in the current exam
+    float examReviewScrollY = 0.0f; // Vertical scroll offset inside the Exam review screen
 };
 
-#endif // End of APP_TYPES_H header guard
+#endif // End of APP_TYPES_H include guard
