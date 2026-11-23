@@ -1,37 +1,25 @@
 # C / C++ Interactive Learning App
 
-An interactive desktop learning application built with **Raylib** that teaches **C** and **C++** from fundamentals to advanced topics through flashcards, quizzes, drag-and-drop code construction, and step-by-step code walkthroughs.
-
-![Dashboard Preview](<img width="602" height="424" alt="Dashboard" src="https://github.com/user-attachments/assets/c80205fb-d4e4-42ac-8b20-456c209323dd" />
-)
+An interactive desktop learning application built with **Raylib** that teaches **C** and **C++** from fundamentals to advanced topics through flashcards, quizzes, drag-and-drop code construction, step-by-step code walkthroughs, hands-on coding practice, and graded exams.
 
 ---
 
 ## Features
 
 - **Dual-Language Curriculum**: Switch seamlessly between **C** (9 topics) and **C++** (10 topics) from the main sidebar.
-- **4 Topic-Based Learning Modes**:
+- **6 Topic-Based Learning Modes**:
   - **Theory**: Structured flashcard lessons with code examples (`+20 XP` per completed topic and quick jump to the matching quiz).
   - **Quiz**: 4-option multiple-choice quizzes (`+15 XP` per correct answer). Wrong answers update your **Needs Practice** focus topic, and finishing with a score of `0` costs 1 Daily Life.
   - **Code Constructor**: Drag-and-drop coding labs with distractor blocks. Click **Ready (Run Car)** to test your solution—an animated car drives through each line, awarding `+50 XP` on success or crashing with a scrollable line-by-line error report on failure.
   - **Code Visualizer**: Preview the full lab solution, then step through each line interactively with toggleable explanations (`+5 XP` per step).
-- **Gamification & Local Persistence**:
+  - **Practice**: Hands-on multi-line code editor with line numbers, Tab indentation, and automated syntax/rule checking (validates balanced braces, parentheses, quotes, semicolons, and required code constructs). Awards `+40 XP` with expected output on success, or displays scrollable diagnostic feedback on failure.
+  - **Exam Mode**: Sequential topic assessments combining multiple-choice and text-input questions with no hints until completion. Awards `+20 XP` per correct answer, assigns a percentage and letter grade (`A`–`F`), flags topics scored below `50%` as **Needs Practice**, and includes a scrollable **Result Review**.
+- **Gamification, Profile & Local Persistence**:
   - User registration and login stored locally in `users.txt`.
   - **Daily Streak** tracker and **Daily Lives** (resets to `5/5` each new day).
   - **Needs Practice** recommendation card.
   - **Diamond League Leaderboard** ranking top learners by XP.
-
----
-
-## Screenshots
-
-| Theory Flashcards | Quiz Mode |
-| :---: | :---: |
-| ![Theory](<img width="602" height="424" alt="image" src="https://github.com/user-attachments/assets/82d9f464-b01c-47a2-b30c-5e65cdab33a3" />) | ![Quiz](<img width="602" height="424" alt="image" src="https://github.com/user-attachments/assets/1844a985-6324-4ba2-8756-c261c59ceb1d" />) |
-
-| Code Constructor | Code Visualizer |
-| :---: | :---: |
-| ![Code Constructor](<img width="602" height="424" alt="image" src="https://github.com/user-attachments/assets/5b4fc333-06cd-4663-a43e-8f2103a11d81" />) | ![Code Visualizer](<img width="602" height="424" alt="image" src="https://github.com/user-attachments/assets/5cb46f45-d43d-46ca-8e04-0e108381fcdc" />) |
+  - **Profile View**: Toggle between the Leaderboard and your Profile from the sidebar to view your XP level, leaderboard rank, completed labs/tasks, and curriculum overview, or **Edit Username** and **Delete Account** via confirmation modals.
 
 ---
 
@@ -48,7 +36,7 @@ An interactive desktop learning application built with **Raylib** that teaches *
 | 7. Pointers & Pointer Math | 7. Operator Overloading |
 | 8. Heap Memory & Func Pointers | 8. Templates (Generic Code) |
 | 9. Linux `fork`/`pipe` & Bit Ops | 9. STL Vectors, Iterators & Algos |
-| | 10. STL Lists, Maps & Smart Pointers |
+| | 10. STL Lists, Maps & Smart Ptrs |
 
 ---
 
@@ -56,12 +44,13 @@ An interactive desktop learning application built with **Raylib** that teaches *
 
 ```text
 .
-├── main.cpp          # Application loop, screen routing, user persistence, and game logic
-├── AppTypes.h        # Enums, data models, and global AppState struct
-├── ContentData.h     # Complete C & C++ curriculum (Theory, Quiz, Constructor, Visualizer)
-├── UI.h              # Dark theme palette, font loading, text wrapping, buttons, and icons
-├── users.txt         # Auto-generated local user database 
-├── font.ttf          # (Optional) Custom TrueType font placed in the working directory
+├── main.cpp            # Application loop, screen routing, user persistence, and game logic
+├── AppTypes.h          # Enums, data models, and global AppState struct
+├── ContentData.h       # C & C++ Theory, Quiz, Constructor, and Visualizer curriculum
+├── PracticeExamData.h  # C & C++ Practice Mode tasks/rules and Exam Mode questions
+├── UI.h                # Dark theme palette, font loading, text wrapping, buttons, and icons
+├── users.txt           # Auto-generated local user database
+└── font.ttf            # (Optional) Custom TrueType font placed in the working directory
 ```
 
 ---
@@ -81,7 +70,7 @@ g++ main.cpp -o LearningStudio.exe -std=c++17 -O2 -lraylib -lopengl32 -lgdi32 -l
 ```
 
 #### Windows (Visual Studio)
-1. Create a new **Empty C++ Project** and add `main.cpp`, `AppTypes.h`, `ContentData.h`, and `UI.h`.
+1. Create a new **Empty C++ Project** and add `main.cpp`, `AppTypes.h`, `ContentData.h`, `PracticeExamData.h`, and `UI.h`.
 2. Set the C++ Language Standard to **ISO C++17 Standard (`/std:c++17`)**.
 3. Link `raylib` (via NuGet, vcpkg, or manual include/lib paths) along with `winmm.lib`.
 4. Build and run (`Ctrl + F5`).
