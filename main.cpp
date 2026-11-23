@@ -439,6 +439,7 @@ int main() { // Define main application entry point
                     }
                 }
                 if (found) {
+                    state.authErrorMsg = "";
                     state.showProfileView = false;
                     state.showEditNameModal = false;
                     state.showDeleteAccountModal = false;
