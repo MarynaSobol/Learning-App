@@ -1,4 +1,6 @@
-// Purpose of AppTypes.h: Defines core enumerations, data structures for users and all learning modes (Theory, Quiz, Constructor, Visualizer, Practice, and Exam), and the central AppState struct holding runtime state for the C / C++ Learning Studio.
+// Purpose of AppTypes.h: Defines core enumerations, data structures for users and all learning modes 
+// (Theory, Quiz, Constructor, Visualizer, Practice, and Exam), 
+// and the central AppState struct holding runtime state for the C / C++ Learning Studio.
 
 #ifndef APP_TYPES_H // Guard against multiple inclusions of this header file
 #define APP_TYPES_H // Define the APP_TYPES_H include guard macro

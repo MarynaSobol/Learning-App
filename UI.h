@@ -1,4 +1,6 @@
-// Purpose of UI.h: Defines the application's color theme, font initialization and cleanup routines, text measurement and wrapping utilities, interactive button rendering, and custom vector icon drawing helpers (flame, heart, and car) built on top of Raylib.
+// Purpose of UI.h: Defines the application's color theme, font initialization and cleanup routines, 
+// text measurement and wrapping utilities, interactive button rendering, 
+// and custom vector icon drawing helpers (flame, heart, and car) built on top of Raylib.
 
 #ifndef UI_H // Guard against multiple inclusions of this header file
 #define UI_H // Define the UI_H include guard macro

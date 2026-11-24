@@ -1,4 +1,6 @@
-// Purpose of PracticeExamData.h: Populates the curriculum collections of hands-on Practice Mode coding tasks (with validation rules and expected outputs) and Exam Mode assessments (multiple-choice and text-input questions) for both the C and C++ programming languages.
+// Purpose of PracticeExamData.h: Populates the curriculum collections of hands-on Practice Mode coding tasks 
+// (with validation rules and expected outputs) and Exam Mode assessments 
+// (multiple-choice and text-input questions) for both the C and C++ programming languages.
 
 #ifndef PRACTICE_EXAM_DATA_H // Guard against multiple inclusions of this header file
 #define PRACTICE_EXAM_DATA_H // Define the PRACTICE_EXAM_DATA_H include guard macro

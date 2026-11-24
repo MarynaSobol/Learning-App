@@ -1,4 +1,8 @@
-// Purpose of main.cpp: Serves as the main entry point and core application loop for the C / C++ Interactive Learning Studio. It manages user authentication, file persistence, daily streak and lives tracking, text and code editor input, answer evaluation, and the rendering and interactive logic for all application screens including Theory, Quiz, Code Constructor, Code Visualizer, Practice Mode, and Exam Mode.
+// Purpose of main.cpp: Serves as the main entry point and core application loop for the C / C++ Interactive Learning Studio. 
+// It manages user authentication, account profile management (viewing progress, editing username, and deleting accounts), 
+// file persistence, daily streak and lives tracking, keyboard and clipboard text/code input, answer evaluation, and the rendering
+// and interactive logic for all application screens including 
+// Theory, Quiz, Code Constructor, Code Visualizer, Practice Mode, and Exam Mode.
 
 #include "raylib.h" // Include Raylib graphics and input library
 #include "AppTypes.h" // Include custom application data structures and enums
@@ -30,10 +34,36 @@ std::string NormalizeAnswer(const std::string& s) { // Define helper function to
     return trimmed; // Return the normalized lowercase string
 }
 
-void UpdateCodeEditorInput(std::string& buffer, float& backspaceTimer, float dt) { // Handle multi-line keyboard input for the Practice code editor
+
+void UpdateCodeEditorInput(std::string& buffer, float& backspaceTimer, float dt) { // Handle multi-line keyboard and clipboard input for the Practice code editor
+    bool ctrlDown = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL); // Check whether either Control modifier key is currently held
+
+    if (ctrlDown && IsKeyPressed(KEY_C)) { // Handle Ctrl+C shortcut to copy the editor contents
+        SetClipboardText(buffer.c_str()); // Copy the entire code buffer to the system clipboard
+    }
+    if (ctrlDown && IsKeyPressed(KEY_X)) { // Handle Ctrl+X shortcut to cut the editor contents
+        SetClipboardText(buffer.c_str()); // Copy the code buffer to the system clipboard
+        buffer.clear(); // Clear the editor buffer after copying
+    }
+    if (ctrlDown && IsKeyPressed(KEY_V)) { // Handle Ctrl+V shortcut to paste multi-line text from the clipboard
+        const char* clip = GetClipboardText(); // Retrieve text currently stored in the system clipboard
+        if (clip != nullptr) { // Verify clipboard text pointer is valid
+            for (size_t i = 0; clip[i] != '\0' && buffer.size() < 2000; ++i) { // Iterate through clipboard characters while under the 2000-char limit
+                char c = clip[i]; // Read current character from clipboard
+                if (c == '\r') continue; // Ignore carriage returns to normalize Windows CRLF line endings to LF
+                if (c == '\t') { // Convert pasted tab characters into four spaces
+                    if (buffer.size() + 4 < 2000) buffer += "    "; // Append four spaces if buffer capacity allows
+                }
+                else if (c == '\n' || (c >= 32 && c <= 125)) { // Allow newlines and printable ASCII characters
+                    buffer.push_back(c); // Append valid character to the code buffer
+                }
+            }
+        }
+    }
+
     int key = GetCharPressed(); // Retrieve the next typed Unicode character
     while (key > 0) { // Process all queued character presses for this frame
-        if (key >= 32 && key <= 125 && buffer.size() < 2000) { // Accept printable ASCII characters up to 2000 characters total
+        if (!ctrlDown && key >= 32 && key <= 125 && buffer.size() < 2000) { // Accept printable ASCII characters when Ctrl is not held within size limit
             buffer.push_back((char)key); // Append typed character to the code buffer
         }
         key = GetCharPressed(); // Fetch the next character from the input queue
@@ -57,10 +87,29 @@ void UpdateCodeEditorInput(std::string& buffer, float& backspaceTimer, float dt)
     }
 }
 
-void UpdateExamTextInput(std::string& buffer, float& backspaceTimer, float dt) { // Handle single-line keyboard input for Exam text answers
+void UpdateExamTextInput(std::string& buffer, float& backspaceTimer, float dt) { // Handle single-line keyboard and clipboard input for Exam text answers
+    bool ctrlDown = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL); // Check whether either Control modifier key is held
+
+    if (ctrlDown && IsKeyPressed(KEY_C)) { // Handle Ctrl+C shortcut to copy the typed exam answer
+        SetClipboardText(buffer.c_str()); // Copy the answer buffer to the system clipboard
+    }
+    if (ctrlDown && IsKeyPressed(KEY_X)) { // Handle Ctrl+X shortcut to cut the typed exam answer
+        SetClipboardText(buffer.c_str()); // Copy the answer buffer to the system clipboard
+        buffer.clear(); // Clear the answer buffer after copying
+    }
+    if (ctrlDown && IsKeyPressed(KEY_V)) { // Handle Ctrl+V shortcut to paste single-line text
+        const char* clip = GetClipboardText(); // Retrieve text from the system clipboard
+        if (clip != nullptr) { // Verify clipboard text is non-null
+            for (size_t i = 0; clip[i] != '\0' && buffer.size() < 80; ++i) { // Iterate over clipboard characters up to the 80-char limit
+                char c = clip[i]; // Read current clipboard character
+                if (c >= 32 && c <= 125) buffer.push_back(c); // Append only printable single-line ASCII characters
+            }
+        }
+    }
+
     int key = GetCharPressed(); // Retrieve the next typed character
     while (key > 0) { // Process all queued characters in the current frame
-        if (key >= 32 && key <= 125 && buffer.size() < 80) { // Accept printable ASCII characters up to 80 characters
+        if (!ctrlDown && key >= 32 && key <= 125 && buffer.size() < 80) { // Accept printable ASCII characters when Ctrl is not held within 80-char limit
             buffer.push_back((char)key); // Append typed character to the answer buffer
         }
         key = GetCharPressed(); // Fetch the next queued character
@@ -325,10 +374,29 @@ void InitVisualizerLevel(AppState& state, const VisualizerLevel& level) { // Def
     state.visualizerScrollY = 0.0f; // Reset the vertical scroll position of the visualizer
 }
 
-void UpdateTextInput(char* buffer, int maxLen) { // Define function to process keyboard typing into a character buffer
+void UpdateTextInput(char* buffer, int maxLen) { // Process keyboard typing and clipboard shortcuts into a fixed-size C-string buffer
+    bool ctrlDown = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL); // Check whether either Control key is currently held
+
+    if (ctrlDown && IsKeyPressed(KEY_C)) { // Handle Ctrl+C to copy the field contents
+        SetClipboardText(buffer); // Copy the buffer text to the system clipboard
+    }
+    if (ctrlDown && IsKeyPressed(KEY_V)) { // Handle Ctrl+V to paste text into the buffer
+        const char* clip = GetClipboardText(); // Retrieve text currently on the clipboard
+        if (clip != nullptr) { // Verify clipboard string is valid
+            int currentLen = (int)strlen(buffer); // Measure current length of text in buffer
+            for (size_t i = 0; clip[i] != '\0' && currentLen < maxLen - 1; ++i) { // Append clipboard characters while space remains before null terminator
+                char c = clip[i]; // Read current character from clipboard
+                if (c >= 32 && c <= 125) { // Restrict pasted characters to printable ASCII
+                    buffer[currentLen++] = c; // Store character and increment length
+                    buffer[currentLen] = '\0'; // Keep the C-string null-terminated
+                }
+            }
+        }
+    }
+
     int key = GetCharPressed(); // Retrieve the next Unicode character pressed on the keyboard
     while (key > 0) { // Process all queued character presses for this frame
-        if ((key >= 32) && (key <= 125)) { // Restrict input to printable ASCII characters
+        if (!ctrlDown && (key >= 32) && (key <= 125)) { // Accept printable ASCII characters when Ctrl is not held
             int currentLen = (int)strlen(buffer); // Measure the current string length in the buffer
             if (currentLen < maxLen - 1) { // Ensure space remains for the character and null terminator
                 buffer[currentLen] = (char)key; // Append the typed character to the buffer
@@ -438,12 +506,12 @@ int main() { // Define main application entry point
                         break; // Stop searching once matched
                     }
                 }
-                if (found) {
-                    state.authErrorMsg = "";
-                    state.showProfileView = false;
-                    state.showEditNameModal = false;
-                    state.showDeleteAccountModal = false;
-                    state.currentScreen = ScreenState::MAIN_MENU;
+                if (found) { // Check if login succeeded
+                    state.authErrorMsg = ""; // Clear any residual authentication error message
+                    state.showProfileView = false; // Start on the default leaderboard dashboard view
+                    state.showEditNameModal = false; // Ensure edit username modal is closed
+                    state.showDeleteAccountModal = false; // Ensure delete account modal is closed
+                    state.currentScreen = ScreenState::MAIN_MENU; // Navigate to the main dashboard
                 }
                 else { // Handle invalid login credentials
                     state.authErrorMsg = "Invalid username or password!"; // Set login failure message
@@ -505,10 +573,10 @@ int main() { // Define main application entry point
                         state.registeredUsers.push_back(newUser); // Add new user to the user list
                         state.currentUserIndex = (int)state.registeredUsers.size() - 1; // Set the newly created user as active
                         SaveUsers(state.registeredUsers); // Save the updated user list to disk
-                        state.showProfileView = false;
-                        state.showEditNameModal = false;
-                        state.showDeleteAccountModal = false;
-                        state.currentScreen = ScreenState::MAIN_MENU;
+                        state.showProfileView = false; // Start on the default leaderboard dashboard view
+                        state.showEditNameModal = false; // Ensure edit username modal is closed
+                        state.showDeleteAccountModal = false; // Ensure delete account modal is closed
+                        state.currentScreen = ScreenState::MAIN_MENU; // Navigate to the main dashboard
                     }
                 }
             }
@@ -579,321 +647,303 @@ int main() { // Define main application entry point
                 state.currentScreen = ScreenState::EXAM_TOPICS; // Open the Exam topic selection screen
             }
 
-            const char* profileBtnLabel = state.showProfileView ? "Leaderboard" : "Profile";
-            Color profileBtnCol = state.showProfileView ? Theme::SUCCESS_COL : Theme::BTN_SECONDARY;
-            if (DrawButton({ 20, screenHeight - 126.0f, navW, 46 }, profileBtnLabel, profileBtnCol, 19)) {
-                state.showProfileView = !state.showProfileView;
-                state.profileDetailsScrollY = 0.0f;
+            const char* profileBtnLabel = state.showProfileView ? "Leaderboard" : "Profile"; // Choose toggle label between Leaderboard and Profile views
+            Color profileBtnCol = state.showProfileView ? Theme::SUCCESS_COL : Theme::BTN_SECONDARY; // Highlight toggle button green while Profile view is open
+            if (DrawButton({ 20, screenHeight - 126.0f, navW, 46 }, profileBtnLabel, profileBtnCol, 19)) { // Draw Profile/Leaderboard toggle button
+                state.showProfileView = !state.showProfileView; // Toggle between Profile view and Leaderboard dashboard
+                state.profileDetailsScrollY = 0.0f; // Reset profile progress scroll offset
             }
 
-            if (DrawButton({ 20, screenHeight - 70.0f, navW, 46 }, "Log Out", Theme::ERROR_COL, 18)) {
-                state.currentUserIndex = -1;
-                state.authErrorMsg = "";
-                state.showProfileView = false;
-                state.showEditNameModal = false;
-                state.showDeleteAccountModal = false;
-                state.currentScreen = ScreenState::AUTH_MENU;
+            if (DrawButton({ 20, screenHeight - 70.0f, navW, 46 }, "Log Out", Theme::ERROR_COL, 18)) { // Draw Log Out button at bottom of sidebar
+                state.currentUserIndex = -1; // Clear the active user index
+                state.authErrorMsg = ""; // Clear any displayed messages
+                state.showProfileView = false; // Reset profile view toggle
+                state.showEditNameModal = false; // Close edit username modal if open
+                state.showDeleteAccountModal = false; // Close delete account modal if open
+                state.currentScreen = ScreenState::AUTH_MENU; // Return to the authentication menu
             }
 
-            float contentX = sidebarW + 30.0f;
-            float contentW = screenWidth - sidebarW - 60.0f;
-            bool modalOpen = state.showEditNameModal || state.showDeleteAccountModal;
+            float contentX = sidebarW + 30.0f; // Set starting X coordinate for the right-side dashboard area
+            float contentW = screenWidth - sidebarW - 60.0f; // Calculate available width for the main dashboard area
+            bool modalOpen = state.showEditNameModal || state.showDeleteAccountModal; // Track whether any profile modal is currently blocking background clicks
 
-            if (!state.showProfileView) {
-                // --- EXISTING DASHBOARD (Top 3 Cards + Leaderboard) ---
-                float cardGap = 20.0f;
-                float cardW = (contentW - cardGap * 2) / 3.0f;
-                float cardH = 105.0f;
-                float cardY = 25.0f;
+            if (!state.showProfileView) { // Render the default dashboard containing top summary cards and leaderboard
+                float cardGap = 20.0f; // Set horizontal gap between top summary cards
+                float cardW = (contentW - cardGap * 2) / 3.0f; // Divide width evenly among three summary cards
+                float cardH = 105.0f; // Set height for each summary card
+                float cardY = 25.0f; // Set top Y position for summary cards
 
-                int streakVal = currUser ? currUser->streak : 1;
-                int livesVal = currUser ? currUser->lives : 5;
-                std::string weakVal = currUser ? currUser->weakTopic : "Pointers & Syntax";
+                int streakVal = currUser ? currUser->streak : 1; // Read active user's streak or default to 1
+                int livesVal = currUser ? currUser->lives : 5; // Read active user's lives or default to 5
+                std::string weakVal = currUser ? currUser->weakTopic : "Pointers & Syntax"; // Read active user's weak topic or default
 
-                Rectangle streakCard = { contentX, cardY, cardW, cardH };
-                DrawRectangleRounded(streakCard, 0.16f, 8, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(streakCard, 0.16f, 8, Theme::WARNING_COL);
-                DrawFlameIcon(streakCard.x + 36, streakCard.y + 52, 1.35f, streakVal > 0);
-                DrawCustomText("DAILY STREAK", (int)streakCard.x + 68, (int)streakCard.y + 20, 14, Theme::TEXT_MUTED);
-                DrawCustomText(TextFormat("%d %s", streakVal, (streakVal == 1 ? "Day" : "Days")),
-                    (int)streakCard.x + 68, (int)streakCard.y + 44, 28, Theme::WARNING_COL);
-                DrawCustomText("Keep learning daily!", (int)streakCard.x + 68, (int)streakCard.y + 78, 13, Theme::TEXT_MUTED);
+                Rectangle streakCard = { contentX, cardY, cardW, cardH }; // Define bounds for the Daily Streak card
+                DrawRectangleRounded(streakCard, 0.16f, 8, Theme::PANEL_BG); // Draw Daily Streak card background
+                DrawRectangleRoundedLines(streakCard, 0.16f, 8, Theme::WARNING_COL); // Draw Daily Streak card border
+                DrawFlameIcon(streakCard.x + 36, streakCard.y + 52, 1.35f, streakVal > 0); // Render flame icon inside the streak card
+                DrawCustomText("DAILY STREAK", (int)streakCard.x + 68, (int)streakCard.y + 20, 14, Theme::TEXT_MUTED); // Draw streak card title
+                DrawCustomText(TextFormat("%d %s", streakVal, (streakVal == 1 ? "Day" : "Days")), // Format streak number with singular or plural label
+                    (int)streakCard.x + 68, (int)streakCard.y + 44, 28, Theme::WARNING_COL); // Draw formatted streak count
+                DrawCustomText("Keep learning daily!", (int)streakCard.x + 68, (int)streakCard.y + 78, 13, Theme::TEXT_MUTED); // Draw motivational caption
 
-                Rectangle focusCard = { contentX + cardW + cardGap, cardY, cardW, cardH };
-                DrawRectangleRounded(focusCard, 0.16f, 8, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(focusCard, 0.16f, 8, Theme::BTN_PRIMARY);
-                DrawCustomText("NEEDS PRACTICE", (int)focusCard.x + 20, (int)focusCard.y + 20, 14, Theme::TEXT_MUTED);
-                DrawTextFitWidth(weakVal.c_str(), (int)focusCard.x + 20, (int)focusCard.y + 46, 17, cardW - 36.0f, Theme::TEXT_LIGHT);
-                DrawCustomText("Focus on this topic next", (int)focusCard.x + 20, (int)focusCard.y + 78, 13, Theme::BTN_HOVER);
+                Rectangle focusCard = { contentX + cardW + cardGap, cardY, cardW, cardH }; // Define bounds for the Needs Practice card
+                DrawRectangleRounded(focusCard, 0.16f, 8, Theme::PANEL_BG); // Draw Needs Practice card background
+                DrawRectangleRoundedLines(focusCard, 0.16f, 8, Theme::BTN_PRIMARY); // Draw Needs Practice card border
+                DrawCustomText("NEEDS PRACTICE", (int)focusCard.x + 20, (int)focusCard.y + 20, 14, Theme::TEXT_MUTED); // Draw Needs Practice card title
+                DrawTextFitWidth(weakVal.c_str(), (int)focusCard.x + 20, (int)focusCard.y + 46, 17, cardW - 36.0f, Theme::TEXT_LIGHT); // Draw weak topic text scaled to fit card width
+                DrawCustomText("Focus on this topic next", (int)focusCard.x + 20, (int)focusCard.y + 78, 13, Theme::BTN_HOVER); // Draw practice hint caption
 
-                Rectangle livesCard = { contentX + (cardW + cardGap) * 2, cardY, cardW, cardH };
-                DrawRectangleRounded(livesCard, 0.16f, 8, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(livesCard, 0.16f, 8, (livesVal > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED);
-                DrawCustomText(TextFormat("DAILY LIVES (%d/5)", livesVal), (int)livesCard.x + 20, (int)livesCard.y + 20, 14, Theme::TEXT_MUTED);
-                for (int h = 0; h < 5; ++h) {
-                    DrawHeartIcon(livesCard.x + 34 + h * 34, livesCard.y + 58, 1.2f, h < livesVal);
+                Rectangle livesCard = { contentX + (cardW + cardGap) * 2, cardY, cardW, cardH }; // Define bounds for the Daily Lives card
+                DrawRectangleRounded(livesCard, 0.16f, 8, Theme::PANEL_BG); // Draw Daily Lives card background
+                DrawRectangleRoundedLines(livesCard, 0.16f, 8, (livesVal > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED); // Draw border colored by remaining lives
+                DrawCustomText(TextFormat("DAILY LIVES (%d/5)", livesVal), (int)livesCard.x + 20, (int)livesCard.y + 20, 14, Theme::TEXT_MUTED); // Draw Daily Lives card title with count
+                for (int h = 0; h < 5; ++h) { // Loop to render five heart icons
+                    DrawHeartIcon(livesCard.x + 34 + h * 34, livesCard.y + 58, 1.2f, h < livesVal); // Draw filled or empty heart based on remaining lives
                 }
-                DrawCustomText("0 score in Quiz = -1 Life", (int)livesCard.x + 20, (int)livesCard.y + 80, 13, Theme::TEXT_MUTED);
+                DrawCustomText("0 score in Quiz = -1 Life", (int)livesCard.x + 20, (int)livesCard.y + 80, 13, Theme::TEXT_MUTED); // Explain how lives are lost
 
-                if (!state.authErrorMsg.empty()) {
-                    DrawCustomText(state.authErrorMsg.c_str(), (int)contentX, 142, 17, Theme::ERROR_COL);
+                if (!state.authErrorMsg.empty()) { // Check if a dashboard warning message is active
+                    DrawCustomText(state.authErrorMsg.c_str(), (int)contentX, 142, 17, Theme::ERROR_COL); // Display warning text below the cards
                 }
 
-                Rectangle lbPanel = { contentX, 168.0f, contentW, screenHeight - 195.0f };
-                DrawRectangleRounded(lbPanel, 0.04f, 8, Theme::SIDEBAR_BG);
-                DrawRectangleRoundedLines(lbPanel, 0.04f, 8, Theme::BTN_SECONDARY);
+                Rectangle lbPanel = { contentX, 168.0f, contentW, screenHeight - 195.0f }; // Define bounds for the leaderboard panel
+                DrawRectangleRounded(lbPanel, 0.04f, 8, Theme::SIDEBAR_BG); // Draw leaderboard panel background
+                DrawRectangleRoundedLines(lbPanel, 0.04f, 8, Theme::BTN_SECONDARY); // Draw leaderboard panel border
 
-                DrawCustomText("DIAMOND LEAGUE LEADERBOARD", (int)lbPanel.x + 28, (int)lbPanel.y + 22, 28, Theme::WARNING_COL);
-                DrawCustomText("Compete with fellow programmers. Earn XP in Theory, Quiz, Constructor & Visualizer!",
-                    (int)lbPanel.x + 28, (int)lbPanel.y + 56, 16, Theme::TEXT_MUTED);
+                DrawCustomText("DIAMOND LEAGUE LEADERBOARD", (int)lbPanel.x + 28, (int)lbPanel.y + 22, 28, Theme::WARNING_COL); // Draw leaderboard title
+                DrawCustomText("Compete with fellow programmers. Earn XP in Theory, Quiz, Constructor & Visualizer!", // Draw leaderboard description text
+                    (int)lbPanel.x + 28, (int)lbPanel.y + 56, 16, Theme::TEXT_MUTED); // Position leaderboard subtitle
 
-                std::vector<User> sortedUsers = state.registeredUsers;
-                std::sort(sortedUsers.begin(), sortedUsers.end(), [](const User& a, const User& b) {
-                    return a.xp > b.xp;
+                std::vector<User> sortedUsers = state.registeredUsers; // Copy registered users to sort without altering original indices
+                std::sort(sortedUsers.begin(), sortedUsers.end(), [](const User& a, const User& b) { // Sort users in descending order by XP
+                    return a.xp > b.xp; // Place higher XP user ahead of lower XP user
                     });
 
-                float rowStartY = lbPanel.y + 98.0f;
-                int maxRows = std::min((int)sortedUsers.size(), 7);
-                for (int i = 0; i < maxRows; ++i) {
-                    Rectangle rowRect = { lbPanel.x + 28.0f, rowStartY + i * 68.0f, lbPanel.width - 56.0f, 56.0f };
+                float rowStartY = lbPanel.y + 98.0f; // Set starting Y coordinate for the first leaderboard row
+                int maxRows = std::min((int)sortedUsers.size(), 7); // Display up to 7 top users
+                for (int i = 0; i < maxRows; ++i) { // Iterate through the top ranked users
+                    Rectangle rowRect = { lbPanel.x + 28.0f, rowStartY + i * 68.0f, lbPanel.width - 56.0f, 56.0f }; // Define bounds for the current leaderboard row
 
-                    bool isCurrentUser = (currUser && sortedUsers[i].username == currUser->username);
-                    Color rowCol = isCurrentUser ? Color{ 40, 90, 70, 255 } : Theme::PANEL_BG;
-                    Color borderCol = isCurrentUser ? Theme::SUCCESS_COL : Theme::BTN_PRIMARY;
+                    bool isCurrentUser = (currUser && sortedUsers[i].username == currUser->username); // Check if this row represents the logged-in user
+                    Color rowCol = isCurrentUser ? Color{ 40, 90, 70, 255 } : Theme::PANEL_BG; // Highlight active user's row in green tint
+                    Color borderCol = isCurrentUser ? Theme::SUCCESS_COL : Theme::BTN_PRIMARY; // Choose row outline color
 
-                    DrawRectangleRounded(rowRect, 0.2f, 6, rowCol);
-                    DrawRectangleRoundedLines(rowRect, 0.2f, 6, borderCol);
+                    DrawRectangleRounded(rowRect, 0.2f, 6, rowCol); // Draw row background rectangle
+                    DrawRectangleRoundedLines(rowRect, 0.2f, 6, borderCol); // Draw row border
 
-                    std::string rankStr = TextFormat("#%d", i + 1);
-                    Color rankCol = Theme::TEXT_LIGHT;
-                    if (i == 0) rankCol = { 255, 215, 0, 255 };
-                    else if (i == 1) rankCol = { 192, 192, 192, 255 };
-                    else if (i == 2) rankCol = { 205, 127, 50, 255 };
+                    std::string rankStr = TextFormat("#%d", i + 1); // Format 1-based rank label
+                    Color rankCol = Theme::TEXT_LIGHT; // Set default rank text color
+                    if (i == 0) rankCol = { 255, 215, 0, 255 }; // Use gold color for rank 1
+                    else if (i == 1) rankCol = { 192, 192, 192, 255 }; // Use silver color for rank 2
+                    else if (i == 2) rankCol = { 205, 127, 50, 255 }; // Use bronze color for rank 3
 
-                    DrawCustomText(rankStr.c_str(), (int)rowRect.x + 22, (int)rowRect.y + 16, 22, rankCol);
-                    DrawCustomText(sortedUsers[i].username.c_str(), (int)rowRect.x + 85, (int)rowRect.y + 17, 20, Theme::TEXT_LIGHT);
+                    DrawCustomText(rankStr.c_str(), (int)rowRect.x + 22, (int)rowRect.y + 16, 22, rankCol); // Draw rank label
+                    DrawCustomText(sortedUsers[i].username.c_str(), (int)rowRect.x + 85, (int)rowRect.y + 17, 20, Theme::TEXT_LIGHT); // Draw user's name
 
-                    std::string streakBadge = TextFormat("%dd streak", sortedUsers[i].streak);
-                    DrawCustomText(streakBadge.c_str(), (int)(rowRect.x + rowRect.width - 230), (int)rowRect.y + 19, 16, Theme::TEXT_MUTED);
+                    std::string streakBadge = TextFormat("%dd streak", sortedUsers[i].streak); // Format user's daily streak badge
+                    DrawCustomText(streakBadge.c_str(), (int)(rowRect.x + rowRect.width - 230), (int)rowRect.y + 19, 16, Theme::TEXT_MUTED); // Draw streak badge
 
-                    std::string xpStr = TextFormat("%d XP", sortedUsers[i].xp);
-                    int xpWidth = (int)MeasureCustomText(xpStr.c_str(), 20);
-                    DrawCustomText(xpStr.c_str(), (int)(rowRect.x + rowRect.width - xpWidth - 24), (int)rowRect.y + 17, 20, Theme::WARNING_COL);
+                    std::string xpStr = TextFormat("%d XP", sortedUsers[i].xp); // Format user's XP string
+                    int xpWidth = (int)MeasureCustomText(xpStr.c_str(), 20); // Measure XP text width for right alignment
+                    DrawCustomText(xpStr.c_str(), (int)(rowRect.x + rowRect.width - xpWidth - 24), (int)rowRect.y + 17, 20, Theme::WARNING_COL); // Draw right-aligned XP text
                 }
             }
-            else if (currUser) {
-                // =========================================================================
-                // PROFILE VIEW
-                // =========================================================================
+            else if (currUser) { // Render the user Profile view when toggled on and a user is logged in
+                Rectangle profileCard = { contentX, 25.0f, contentW, 130.0f }; // Define bounds for the top account profile card
+                DrawRectangleRounded(profileCard, 0.08f, 8, Theme::PANEL_BG); // Draw account profile card background
+                DrawRectangleRoundedLines(profileCard, 0.08f, 8, Theme::BTN_PRIMARY); // Draw account profile card outline
 
-                // 1. Account Profile Header Block
-                Rectangle profileCard = { contentX, 25.0f, contentW, 130.0f };
-                DrawRectangleRounded(profileCard, 0.08f, 8, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(profileCard, 0.08f, 8, Theme::BTN_PRIMARY);
+                DrawAvatarIcon(profileCard.x + 65.0f, profileCard.y + 65.0f, 38.0f); // Draw circular user avatar icon
 
-                DrawAvatarIcon(profileCard.x + 65.0f, profileCard.y + 65.0f, 38.0f);
+                DrawCustomText("ACCOUNT PROFILE", (int)profileCard.x + 128, (int)profileCard.y + 24, 14, Theme::TEXT_MUTED); // Draw profile card header label
+                DrawTextFitWidth(currUser->username.c_str(), (int)profileCard.x + 128, (int)profileCard.y + 48, 30, contentW - 310.0f, Theme::TEXT_LIGHT); // Display active username scaled to fit
+                DrawCustomText(TextFormat("Last active: %s", currUser->lastActiveDate.c_str()), // Format user's last active date caption
+                    (int)profileCard.x + 128, (int)profileCard.y + 88, 15, Theme::TEXT_MUTED); // Draw last active date text
 
-                DrawCustomText("ACCOUNT PROFILE", (int)profileCard.x + 128, (int)profileCard.y + 24, 14, Theme::TEXT_MUTED);
-                DrawTextFitWidth(currUser->username.c_str(), (int)profileCard.x + 128, (int)profileCard.y + 48, 30, contentW - 310.0f, Theme::TEXT_LIGHT);
-                DrawCustomText(TextFormat("Member since / Last active: %s", currUser->lastActiveDate.c_str()),
-                    (int)profileCard.x + 128, (int)profileCard.y + 88, 15, Theme::TEXT_MUTED);
-
-                Rectangle editBtnRect = { profileCard.x + profileCard.width - 150.0f, profileCard.y + 42.0f, 125.0f, 46.0f };
-                if (DrawButton(editBtnRect, "Edit", Theme::BTN_PRIMARY, 20) && !modalOpen) {
-                    strncpy_s(state.editNameBuffer, sizeof(state.editNameBuffer), currUser->username.c_str(), _TRUNCATE);
-                    state.editNameBuffer[sizeof(state.editNameBuffer) - 1] = '\0';
-                    state.profileErrorMsg = "";
-                    state.showEditNameModal = true;
+                Rectangle editBtnRect = { profileCard.x + profileCard.width - 150.0f, profileCard.y + 42.0f, 125.0f, 46.0f }; // Define bounds for Edit username button
+                if (DrawButton(editBtnRect, "Edit", Theme::BTN_PRIMARY, 20) && !modalOpen) { // Open edit username modal when clicked and no modal is open
+                    strncpy_s(state.editNameBuffer, sizeof(state.editNameBuffer), currUser->username.c_str(), _TRUNCATE); // Pre-fill edit buffer with current username
+                    state.editNameBuffer[sizeof(state.editNameBuffer) - 1] = '\0'; // Guarantee null termination of edit buffer
+                    state.profileErrorMsg = ""; // Clear any previous validation error
+                    state.showEditNameModal = true; // Display the edit username modal
                 }
 
-                // 2. Delete Account Button directly underneath Account Profile block
-                Rectangle deleteBtnRect = { contentX, 170.0f, 220.0f, 44.0f };
-                if (DrawButton(deleteBtnRect, "Delete Account", Theme::ERROR_COL, 18) && !modalOpen) {
-                    state.showDeleteAccountModal = true;
+                Rectangle deleteBtnRect = { contentX, 170.0f, 220.0f, 44.0f }; // Define bounds for Delete Account button below profile card
+                if (DrawButton(deleteBtnRect, "Delete Account", Theme::ERROR_COL, 18) && !modalOpen) { // Open delete confirmation modal when clicked
+                    state.showDeleteAccountModal = true; // Display the delete account confirmation modal
                 }
 
-                // 3. Profile Details Section
-                Rectangle detailsPanel = { contentX, 230.0f, contentW, screenHeight - 255.0f };
-                DrawRectangleRounded(detailsPanel, 0.04f, 8, Theme::SIDEBAR_BG);
-                DrawRectangleRoundedLines(detailsPanel, 0.04f, 8, Theme::BTN_SECONDARY);
+                Rectangle detailsPanel = { contentX, 230.0f, contentW, screenHeight - 255.0f }; // Define bounds for the profile details container
+                DrawRectangleRounded(detailsPanel, 0.04f, 8, Theme::SIDEBAR_BG); // Draw details panel background
+                DrawRectangleRoundedLines(detailsPanel, 0.04f, 8, Theme::BTN_SECONDARY); // Draw details panel border
 
-                DrawCustomText("PROFILE DETAILS", (int)detailsPanel.x + 28, (int)detailsPanel.y + 20, 24, Theme::TEXT_LIGHT);
-                DrawLine((int)detailsPanel.x + 28, (int)detailsPanel.y + 54, (int)(detailsPanel.x + detailsPanel.width - 28), (int)detailsPanel.y + 54, Theme::BTN_SECONDARY);
+                DrawCustomText("PROFILE DETAILS", (int)detailsPanel.x + 28, (int)detailsPanel.y + 20, 24, Theme::TEXT_LIGHT); // Draw profile details section heading
+                DrawLine((int)detailsPanel.x + 28, (int)detailsPanel.y + 54, (int)(detailsPanel.x + detailsPanel.width - 28), (int)detailsPanel.y + 54, Theme::BTN_SECONDARY); // Draw horizontal divider line
 
-                // Row A: Daily Streak (Flame)
-                Rectangle streakRow = { detailsPanel.x + 28.0f, detailsPanel.y + 68.0f, detailsPanel.width - 56.0f, 64.0f };
-                DrawRectangleRounded(streakRow, 0.14f, 6, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(streakRow, 0.14f, 6, Theme::WARNING_COL);
-                DrawFlameIcon(streakRow.x + 34.0f, streakRow.y + 32.0f, 1.2f, currUser->streak > 0);
-                DrawCustomText("Daily Learning Streak:", (int)streakRow.x + 68, (int)streakRow.y + 21, 19, Theme::TEXT_MUTED);
-                DrawCustomText(TextFormat("%d %s", currUser->streak, (currUser->streak == 1 ? "Day" : "Days")),
-                    (int)streakRow.x + 290, (int)streakRow.y + 18, 24, Theme::WARNING_COL);
+                Rectangle streakRow = { detailsPanel.x + 28.0f, detailsPanel.y + 68.0f, detailsPanel.width - 56.0f, 64.0f }; // Define bounds for the daily streak row
+                DrawRectangleRounded(streakRow, 0.14f, 6, Theme::PANEL_BG); // Draw streak row background
+                DrawRectangleRoundedLines(streakRow, 0.14f, 6, Theme::WARNING_COL); // Draw amber outline around streak row
+                DrawFlameIcon(streakRow.x + 34.0f, streakRow.y + 32.0f, 1.2f, currUser->streak > 0); // Render streak flame icon
+                DrawCustomText("Daily Learning Streak:", (int)streakRow.x + 68, (int)streakRow.y + 21, 19, Theme::TEXT_MUTED); // Draw streak label
+                DrawCustomText(TextFormat("%d %s", currUser->streak, (currUser->streak == 1 ? "Day" : "Days")), // Format streak duration text
+                    (int)streakRow.x + 290, (int)streakRow.y + 18, 24, Theme::WARNING_COL); // Draw streak count value
 
-                // Row B: Daily Lives (underneath Flame)
-                Rectangle livesRow = { detailsPanel.x + 28.0f, detailsPanel.y + 144.0f, detailsPanel.width - 56.0f, 64.0f };
-                DrawRectangleRounded(livesRow, 0.14f, 6, Theme::PANEL_BG);
-                DrawRectangleRoundedLines(livesRow, 0.14f, 6, (currUser->lives > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED);
-                DrawCustomText(TextFormat("Daily Lives (%d/5):", currUser->lives), (int)livesRow.x + 24, (int)livesRow.y + 21, 19, Theme::TEXT_MUTED);
-                for (int h = 0; h < 5; ++h) {
-                    DrawHeartIcon(livesRow.x + 235.0f + h * 34.0f, livesRow.y + 32.0f, 1.15f, h < currUser->lives);
+                Rectangle livesRow = { detailsPanel.x + 28.0f, detailsPanel.y + 144.0f, detailsPanel.width - 56.0f, 64.0f }; // Define bounds for the daily lives row
+                DrawRectangleRounded(livesRow, 0.14f, 6, Theme::PANEL_BG); // Draw lives row background
+                DrawRectangleRoundedLines(livesRow, 0.14f, 6, (currUser->lives > 0) ? Theme::ERROR_COL : Theme::TEXT_MUTED); // Outline row red if lives remain or muted if zero
+                DrawCustomText(TextFormat("Daily Lives (%d/5):", currUser->lives), (int)livesRow.x + 24, (int)livesRow.y + 21, 19, Theme::TEXT_MUTED); // Draw lives count label
+                for (int h = 0; h < 5; ++h) { // Render all five daily life heart icons
+                    DrawHeartIcon(livesRow.x + 235.0f + h * 34.0f, livesRow.y + 32.0f, 1.15f, h < currUser->lives); // Draw filled or empty heart icon
                 }
 
-                // Row C: Detailed Learning Progress (compact scrollable viewport)
-                DrawCustomText("LEARNING PROGRESS OVERVIEW (Scroll to view all)", (int)detailsPanel.x + 28, (int)detailsPanel.y + 224, 15, Theme::TEXT_MUTED);
-                Rectangle progressBox = { detailsPanel.x + 28.0f, detailsPanel.y + 248.0f, detailsPanel.width - 56.0f, detailsPanel.height - 270.0f };
-                DrawRectangleRounded(progressBox, 0.05f, 8, Theme::BG_DARK);
-                DrawRectangleRoundedLines(progressBox, 0.05f, 8, Theme::BTN_SECONDARY);
+                DrawCustomText("LEARNING PROGRESS OVERVIEW (Scroll to view all)", (int)detailsPanel.x + 28, (int)detailsPanel.y + 224, 15, Theme::TEXT_MUTED); // Draw scrollable progress overview header
+                Rectangle progressBox = { detailsPanel.x + 28.0f, detailsPanel.y + 248.0f, detailsPanel.width - 56.0f, detailsPanel.height - 270.0f }; // Define bounds for scrollable progress viewport
+                DrawRectangleRounded(progressBox, 0.05f, 8, Theme::BG_DARK); // Draw dark viewport background
+                DrawRectangleRoundedLines(progressBox, 0.05f, 8, Theme::BTN_SECONDARY); // Draw viewport border
 
-                // Calculate user's current leaderboard rank
-                std::vector<User> ranked = state.registeredUsers;
-                std::sort(ranked.begin(), ranked.end(), [](const User& a, const User& b) { return a.xp > b.xp; });
-                int userRank = 1;
-                for (size_t r = 0; r < ranked.size(); ++r) {
-                    if (ranked[r].username == currUser->username) {
-                        userRank = (int)r + 1;
-                        break;
+                std::vector<User> ranked = state.registeredUsers; // Copy registered users to compute leaderboard standing
+                std::sort(ranked.begin(), ranked.end(), [](const User& a, const User& b) { return a.xp > b.xp; }); // Sort copied users by XP descending
+                int userRank = 1; // Initialize user rank counter
+                for (size_t r = 0; r < ranked.size(); ++r) { // Find the logged-in user's position in the sorted rankings
+                    if (ranked[r].username == currUser->username) { // Match by username
+                        userRank = (int)r + 1; // Store 1-based leaderboard rank
+                        break; // Stop searching once found
                     }
                 }
 
-                int xpLevel = (currUser->xp / 100) + 1;
-                int xpToNext = 100 - (currUser->xp % 100);
-                const char* langLabel = (state.language == TargetLang::LANG_C) ? "C Programming" : "C++ Programming";
+                int xpLevel = (currUser->xp / 100) + 1; // Compute user's level based on 100 XP per level
+                int xpToNext = 100 - (currUser->xp % 100); // Calculate XP remaining until the next level
+                const char* langLabel = (state.language == TargetLang::LANG_C) ? "C Programming" : "C++ Programming"; // Format readable name of active language curriculum
 
-                std::string progressText =
-                    std::string("Current Level: Level ") + std::to_string(xpLevel) + " (" + std::to_string(xpToNext) + " XP to next level)\n\n" +
-                    "Total Experience Earned: " + std::to_string(currUser->xp) + " XP\n\n" +
-                    "Diamond League Rank: #" + std::to_string(userRank) + " of " + std::to_string(state.registeredUsers.size()) + " learners\n\n" +
-                    "Completed Labs & Practice Tasks: " + std::to_string(currUser->levelsCompleted) + "\n\n" +
-                    "Active Curriculum: " + langLabel + "\n\n" +
-                    "Recommended Focus Topic: " + currUser->weakTopic + "\n\n" +
-                    "Available Topics in Active Curriculum:\n" +
-                    "  - Theory Topics: " + std::to_string(db.theoryTopics.size()) + "\n" +
-                    "  - Quiz Topics: " + std::to_string(db.quizTopics.size()) + "\n" +
-                    "  - Constructor Topics: " + std::to_string(db.constructorTopics.size()) + "\n" +
-                    "  - Visualizer Topics: " + std::to_string(db.visualizerTopics.size()) + "\n" +
-                    "  - Practice Topics: " + std::to_string(db.practiceTopics.size()) + "\n" +
-                    "  - Exam Topics: " + std::to_string(db.examTopics.size()) + "\n\n" +
-                    "Last Active Date: " + currUser->lastActiveDate + "\n\n" +
-                    "Tip: Complete Practice tasks (+40 XP), Constructor labs (+50 XP), and Exam Mode (+20 XP per question) to climb the leaderboard!";
+                std::string progressText = // Build multi-line detailed learning progress report string
+                    std::string("Current Level: Level ") + std::to_string(xpLevel) + " (" + std::to_string(xpToNext) + " XP to next level)\n\n" + // Include current level and XP needed for next level
+                    "Total Experience Earned: " + std::to_string(currUser->xp) + " XP\n\n" + // Include total earned XP
+                    "Diamond League Rank: #" + std::to_string(userRank) + " of " + std::to_string(state.registeredUsers.size()) + " learners\n\n" + // Include current rank out of total learners
+                    "Completed Labs & Practice Tasks: " + std::to_string(currUser->levelsCompleted) + "\n\n" + // Include count of completed labs and tasks
+                    "Active Curriculum: " + langLabel + "\n\n" + // Include active programming language
+                    "Recommended Focus Topic: " + currUser->weakTopic + "\n\n" + // Include current weak topic recommendation
+                    "Available Topics in Active Curriculum:\n" + // Header for curriculum topic counts
+                    "  - Theory Topics: " + std::to_string(db.theoryTopics.size()) + "\n" + // Count of Theory topics
+                    "  - Quiz Topics: " + std::to_string(db.quizTopics.size()) + "\n" + // Count of Quiz topics
+                    "  - Constructor Topics: " + std::to_string(db.constructorTopics.size()) + "\n" + // Count of Constructor topics
+                    "  - Visualizer Topics: " + std::to_string(db.visualizerTopics.size()) + "\n" + // Count of Visualizer topics
+                    "  - Practice Topics: " + std::to_string(db.practiceTopics.size()) + "\n" + // Count of Practice topics
+                    "  - Exam Topics: " + std::to_string(db.examTopics.size()) + "\n\n" + // Count of Exam topics
+                    "Last Active Date: " + currUser->lastActiveDate + "\n\n" + // Include last active login date
+                    "Tip: Complete Practice tasks (+40 XP), Constructor labs (+50 XP), and Exam Mode (+20 XP per question) to climb the leaderboard!"; // Append helpful XP tip
 
-                float progContentH = MeasureTextWrappedHeight(progressText, progressBox.width - 42.0f, 17) + 24.0f;
-                float maxProgScroll = std::max(0.0f, progContentH - progressBox.height);
+                float progContentH = MeasureTextWrappedHeight(progressText, progressBox.width - 42.0f, 17) + 24.0f; // Measure wrapped pixel height of the progress report
+                float maxProgScroll = std::max(0.0f, progContentH - progressBox.height); // Calculate maximum allowed vertical scroll offset
 
-                if (!modalOpen && CheckCollisionPointRec(mouse, progressBox)) {
-                    float wheel = GetMouseWheelMove();
-                    if (wheel != 0.0f) state.profileDetailsScrollY -= wheel * 35.0f;
+                if (!modalOpen && CheckCollisionPointRec(mouse, progressBox)) { // Scroll with mouse wheel when hovering over progress box and no modal is open
+                    float wheel = GetMouseWheelMove(); // Poll mouse wheel delta
+                    if (wheel != 0.0f) state.profileDetailsScrollY -= wheel * 35.0f; // Adjust scroll position by wheel delta
                 }
-                if (!modalOpen) {
-                    if (IsKeyDown(KEY_DOWN)) state.profileDetailsScrollY += 220.0f * dt;
-                    if (IsKeyDown(KEY_UP)) state.profileDetailsScrollY -= 220.0f * dt;
+                if (!modalOpen) { // Allow arrow key scrolling when no modal is open
+                    if (IsKeyDown(KEY_DOWN)) state.profileDetailsScrollY += 220.0f * dt; // Scroll downward with Down arrow key
+                    if (IsKeyDown(KEY_UP)) state.profileDetailsScrollY -= 220.0f * dt; // Scroll upward with Up arrow key
                 }
-                state.profileDetailsScrollY = std::clamp(state.profileDetailsScrollY, 0.0f, maxProgScroll);
+                state.profileDetailsScrollY = std::clamp(state.profileDetailsScrollY, 0.0f, maxProgScroll); // Clamp scroll position within bounds
 
-                BeginScissorMode((int)progressBox.x + 6, (int)progressBox.y + 6, (int)progressBox.width - 12, (int)progressBox.height - 12);
-                DrawTextWrapped(progressText,
-                    { progressBox.x + 18.0f, progressBox.y + 14.0f - state.profileDetailsScrollY, progressBox.width - 42.0f, progContentH },
-                    17, Theme::TEXT_LIGHT);
-                EndScissorMode();
+                BeginScissorMode((int)progressBox.x + 6, (int)progressBox.y + 6, (int)progressBox.width - 12, (int)progressBox.height - 12); // Clip progress text inside viewport
+                DrawTextWrapped(progressText, // Draw wrapped progress overview text shifted by scroll offset
+                    { progressBox.x + 18.0f, progressBox.y + 14.0f - state.profileDetailsScrollY, progressBox.width - 42.0f, progContentH }, // Set text origin and bounds
+                    17, Theme::TEXT_LIGHT); // Render at font size 17 in light text color
+                EndScissorMode(); // End scissor clipping for progress box
 
-                if (maxProgScroll > 0.0f) {
-                    float barH = std::max(36.0f, progressBox.height * (progressBox.height / progContentH));
-                    float barY = progressBox.y + (state.profileDetailsScrollY / maxProgScroll) * (progressBox.height - barH);
-                    DrawRectangleRounded({ progressBox.x + progressBox.width - 12.0f, barY, 6.0f, barH }, 0.5f, 4, Theme::TEXT_MUTED);
+                if (maxProgScroll > 0.0f) { // Draw scrollbar thumb when progress text overflows viewport
+                    float barH = std::max(36.0f, progressBox.height * (progressBox.height / progContentH)); // Compute proportional scrollbar thumb height
+                    float barY = progressBox.y + (state.profileDetailsScrollY / maxProgScroll) * (progressBox.height - barH); // Compute scrollbar vertical position
+                    DrawRectangleRounded({ progressBox.x + progressBox.width - 12.0f, barY, 6.0f, barH }, 0.5f, 4, Theme::TEXT_MUTED); // Render scrollbar thumb
                 }
 
-                // =========================================================================
-                // MODAL 1: EDIT USERNAME
-                // =========================================================================
-                if (state.showEditNameModal) {
-                    DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 });
-                    Rectangle modal = { 340.0f, 230.0f, 520.0f, 300.0f };
-                    DrawRectangleRounded(modal, 0.07f, 10, Theme::PANEL_BG);
-                    DrawRectangleRoundedLines(modal, 0.07f, 10, Theme::BTN_PRIMARY);
+                if (state.showEditNameModal) { // Render modal dialog for changing the active user's username
+                    DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 }); // Dim background behind modal
+                    Rectangle modal = { 340.0f, 230.0f, 520.0f, 300.0f }; // Define bounds for Edit Username modal
+                    DrawRectangleRounded(modal, 0.07f, 10, Theme::PANEL_BG); // Draw modal background
+                    DrawRectangleRoundedLines(modal, 0.07f, 10, Theme::BTN_PRIMARY); // Draw modal outline
 
-                    DrawCenteredText("EDIT USERNAME", 260, 28, Theme::TEXT_LIGHT);
-                    DrawCustomText("New Username:", 390, 314, 18, Theme::TEXT_MUTED);
+                    DrawCenteredText("EDIT USERNAME", 260, 28, Theme::TEXT_LIGHT); // Draw modal heading
+                    DrawCustomText("New Username:", 390, 314, 18, Theme::TEXT_MUTED); // Draw label above input box
 
-                    Rectangle nameInputBox = { 390.0f, 344.0f, 420.0f, 46.0f };
-                    DrawRectangleRounded(nameInputBox, 0.2f, 6, Theme::BG_DARK);
-                    DrawRectangleRoundedLines(nameInputBox, 0.2f, 6, Theme::SUCCESS_COL);
-                    UpdateTextInput(state.editNameBuffer, 32);
+                    Rectangle nameInputBox = { 390.0f, 344.0f, 420.0f, 46.0f }; // Define bounds for new username input field
+                    DrawRectangleRounded(nameInputBox, 0.2f, 6, Theme::BG_DARK); // Draw dark input field background
+                    DrawRectangleRoundedLines(nameInputBox, 0.2f, 6, Theme::SUCCESS_COL); // Draw active green input field outline
+                    UpdateTextInput(state.editNameBuffer, 32); // Capture keyboard and clipboard input for new username
 
-                    std::string displayEdit = state.editNameBuffer;
-                    if ((int)(GetTime() * 2.0) % 2 == 0) displayEdit += "|";
-                    DrawCustomText(displayEdit.c_str(), 405, 356, 20, Theme::TEXT_LIGHT);
+                    std::string displayEdit = state.editNameBuffer; // Copy edited name for display
+                    if ((int)(GetTime() * 2.0) % 2 == 0) displayEdit += "|"; // Append blinking text cursor every half second
+                    DrawCustomText(displayEdit.c_str(), 405, 356, 20, Theme::TEXT_LIGHT); // Render edited username text
 
-                    if (!state.profileErrorMsg.empty()) {
-                        DrawCenteredText(state.profileErrorMsg.c_str(), 402, 16, Theme::ERROR_COL);
+                    if (!state.profileErrorMsg.empty()) { // Display validation error message if present
+                        DrawCenteredText(state.profileErrorMsg.c_str(), 402, 16, Theme::ERROR_COL); // Draw red error text
                     }
 
-                    if (DrawButton({ 390.0f, 444.0f, 195.0f, 48.0f }, "Confirm", Theme::SUCCESS_COL, 20)) {
-                        std::string newName(state.editNameBuffer);
-                        if (newName.empty()) {
-                            state.profileErrorMsg = "Username cannot be empty!";
+                    if (DrawButton({ 390.0f, 444.0f, 195.0f, 48.0f }, "Confirm", Theme::SUCCESS_COL, 20)) { // Draw Confirm button and validate new username on click
+                        std::string newName(state.editNameBuffer); // Convert input buffer to std::string
+                        if (newName.empty()) { // Reject empty usernames
+                            state.profileErrorMsg = "Username cannot be empty!"; // Set empty name validation error
                         }
-                        else {
-                            bool duplicate = false;
-                            for (size_t i = 0; i < state.registeredUsers.size(); ++i) {
-                                if ((int)i != state.currentUserIndex && state.registeredUsers[i].username == newName) {
-                                    duplicate = true;
-                                    break;
+                        else { // Check whether another account already owns the requested username
+                            bool duplicate = false; // Track duplicate username detection
+                            for (size_t i = 0; i < state.registeredUsers.size(); ++i) { // Iterate over all registered users
+                                if ((int)i != state.currentUserIndex && state.registeredUsers[i].username == newName) { // Compare against other accounts
+                                    duplicate = true; // Flag duplicate username
+                                    break; // Stop checking on first conflict
                                 }
                             }
-                            if (duplicate) {
-                                state.profileErrorMsg = "Username is already taken!";
+                            if (duplicate) { // Prevent saving duplicate username
+                                state.profileErrorMsg = "Username is already taken!"; // Set duplicate username error message
                             }
-                            else {
-                                currUser->username = newName;
-                                SaveUsers(state.registeredUsers);
-                                state.showEditNameModal = false;
-                                state.profileErrorMsg = "";
+                            else { // Apply and save the updated username
+                                currUser->username = newName; // Update active user's username
+                                SaveUsers(state.registeredUsers); // Persist changes to users.txt
+                                state.showEditNameModal = false; // Close edit username modal
+                                state.profileErrorMsg = ""; // Clear any validation message
                             }
                         }
                     }
-                    if (DrawButton({ 615.0f, 444.0f, 195.0f, 48.0f }, "Cancel", Theme::BTN_SECONDARY, 20)) {
-                        state.showEditNameModal = false;
-                        state.profileErrorMsg = "";
+                    if (DrawButton({ 615.0f, 444.0f, 195.0f, 48.0f }, "Cancel", Theme::BTN_SECONDARY, 20)) { // Draw Cancel button
+                        state.showEditNameModal = false; // Close modal without saving changes
+                        state.profileErrorMsg = ""; // Clear any validation message
                     }
                 }
 
-                // =========================================================================
-                // MODAL 2: DELETE ACCOUNT CONFIRMATION
-                // =========================================================================
-                if (state.showDeleteAccountModal) {
-                    DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 });
-                    Rectangle modal = { 320.0f, 240.0f, 560.0f, 270.0f };
-                    DrawRectangleRounded(modal, 0.07f, 10, Theme::PANEL_BG);
-                    DrawRectangleRoundedLines(modal, 0.07f, 10, Theme::ERROR_COL);
+                if (state.showDeleteAccountModal) { // Render modal dialog confirming permanent account deletion
+                    DrawRectangle(0, 0, screenWidth, screenHeight, { 0, 0, 0, 195 }); // Dim background behind confirmation modal
+                    Rectangle modal = { 320.0f, 240.0f, 560.0f, 270.0f }; // Define bounds for Delete Account modal
+                    DrawRectangleRounded(modal, 0.07f, 10, Theme::PANEL_BG); // Draw modal background
+                    DrawRectangleRoundedLines(modal, 0.07f, 10, Theme::ERROR_COL); // Draw red warning outline around modal
 
-                    DrawCenteredText("DELETE ACCOUNT", 272, 28, Theme::ERROR_COL);
-                    DrawCenteredText("Are you sure you want to permanently delete", 326, 20, Theme::TEXT_LIGHT);
-                    DrawCenteredText("your account? All progress and XP will be lost.", 356, 18, Theme::TEXT_MUTED);
+                    DrawCenteredText("DELETE ACCOUNT", 272, 28, Theme::ERROR_COL); // Draw modal warning heading
+                    DrawCenteredText("Are you sure you want to permanently delete", 326, 20, Theme::TEXT_LIGHT); // Draw first line of warning text
+                    DrawCenteredText("your account? All progress and XP will be lost.", 356, 18, Theme::TEXT_MUTED); // Draw second line of warning text
 
-                    if (DrawButton({ 370.0f, 426.0f, 210.0f, 50.0f }, "Yes, Delete", Theme::ERROR_COL, 20)) {
-                        state.registeredUsers.erase(state.registeredUsers.begin() + state.currentUserIndex);
-                        SaveUsers(state.registeredUsers);
-                        state.currentUserIndex = -1;
-                        state.showProfileView = false;
-                        state.showDeleteAccountModal = false;
-                        state.authErrorMsg = "";
-                        state.currentScreen = ScreenState::AUTH_MENU;
+                    if (DrawButton({ 370.0f, 426.0f, 210.0f, 50.0f }, "Yes, Delete", Theme::ERROR_COL, 20)) { // Draw permanent deletion confirmation button
+                        state.registeredUsers.erase(state.registeredUsers.begin() + state.currentUserIndex); // Remove the active user from the user list
+                        SaveUsers(state.registeredUsers); // Persist updated user list to disk
+                        state.currentUserIndex = -1; // Clear active user index
+                        state.showProfileView = false; // Reset profile view toggle
+                        state.showDeleteAccountModal = false; // Close delete account modal
+                        state.authErrorMsg = ""; // Clear any dashboard error messages
+                        state.currentScreen = ScreenState::AUTH_MENU; // Return to initial authentication menu
                     }
-                    if (DrawButton({ 620.0f, 426.0f, 210.0f, 50.0f }, "Cancel", Theme::BTN_SECONDARY, 20)) {
-                        state.showDeleteAccountModal = false;
+                    if (DrawButton({ 620.0f, 426.0f, 210.0f, 50.0f }, "Cancel", Theme::BTN_SECONDARY, 20)) { // Draw Cancel button
+                        state.showDeleteAccountModal = false; // Dismiss confirmation modal without deleting
                     }
                 }
             }
         }
         else { // Render compact top status bar for all inner learning screens
-            const char* activeLangText = (state.language == TargetLang::LANG_C) ? "Active Lang: C" : "Active Lang: C++";
-            DrawRectangleRounded({ 20, 14, 195, 34 }, 0.3f, 6, Theme::PANEL_BG);
-            DrawCustomText(activeLangText, 35, 22, 17, Theme::WARNING_COL);
+            const char* activeLangText = (state.language == TargetLang::LANG_C) ? "Active Lang: C" : "Active Lang: C++"; // Prepare label for currently selected language
+            DrawRectangleRounded({ 20, 14, 195, 34 }, 0.3f, 6, Theme::PANEL_BG); // Draw language badge background
+            DrawCustomText(activeLangText, 35, 22, 17, Theme::WARNING_COL); // Draw active language text
 
-            if (state.currentUserIndex >= 0 && state.currentUserIndex < (int)state.registeredUsers.size()) {
-                User& currUser = state.registeredUsers[state.currentUserIndex];
-                std::string userBadge = TextFormat("User: %s | %d XP | %d Lives", currUser.username.c_str(), currUser.xp, currUser.lives);
-                DrawRectangleRounded({ 228, 14, 345, 34 }, 0.3f, 6, Theme::PANEL_BG);
-                DrawTextFitWidth(userBadge.c_str(), 242, 22, 16, 318.0f, Theme::SUCCESS_COL);
+            if (state.currentUserIndex >= 0 && state.currentUserIndex < (int)state.registeredUsers.size()) { // Verify a user is logged in
+                User& currUser = state.registeredUsers[state.currentUserIndex]; // Reference the active user
+                std::string userBadge = TextFormat("User: %s | %d XP | %d Lives", currUser.username.c_str(), currUser.xp, currUser.lives); // Format user status summary
+                DrawRectangleRounded({ 228, 14, 345, 34 }, 0.3f, 6, Theme::PANEL_BG); // Draw user badge background
+                DrawTextFitWidth(userBadge.c_str(), 242, 22, 16, 318.0f, Theme::SUCCESS_COL); // Draw user status text scaled to fit
             }
         }
 
@@ -933,6 +983,10 @@ int main() { // Define main application entry point
             DrawLine(175, 208, 1025, 208, Theme::BTN_SECONDARY); // Draw horizontal divider below card title
 
             DrawTextWrapped(card.content, { 175, 228, 850, 340 }, 20, Theme::TEXT_LIGHT); // Render wrapped lesson content text
+
+            if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyPressed(KEY_C)) { // Allow copying current flashcard content with Ctrl+C
+                SetClipboardText(card.content.c_str()); // Copy the flashcard text to the system clipboard
+            }
 
             if (state.currentCard > 0) { // Show Previous button if not on the first card
                 if (DrawButton({ 140, 610, 190, 50 }, "< Previous", Theme::BTN_PRIMARY, 20)) { // Draw Previous button
@@ -1438,6 +1492,11 @@ int main() { // Define main application entry point
                 DrawRectangleRounded(lineBox, 0.2f, 6, Theme::PANEL_BG); // Draw code line background
                 DrawRectangleRoundedLines(lineBox, 0.2f, 6, Theme::BTN_PRIMARY); // Draw code line outline
                 DrawTextFitWidth(level.steps[i].codeLine.c_str(), 122, (int)curY + 9, 18, lineBox.width - 28.0f, Theme::TEXT_LIGHT); // Draw code text fitted to box width
+
+                if (mouseInViewport && CheckCollisionPointRec(mouse, lineBox) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) { // Allow clicking a code line box to copy it
+                    SetClipboardText(level.steps[i].codeLine.c_str()); // Copy the clicked line of code to the system clipboard
+                }
+
 
                 if (state.stepUnderstood[i]) { // Provide a toggle button for already understood steps
                     const char* toggleLabel = state.explanationVisible[i] ? "Hide Info" : "Show Info"; // Choose label based on current visibility
